@@ -43,7 +43,7 @@ A comprehensive Home Assistant integration for Dutch public transportation (9292
 2. Click on "Integrations"
 3. Click the three dots in the top right corner
 4. Select "Custom repositories"
-5. Add this repository URL: `https://github.com/yourusername/nl_public_transport`
+5. Add this repository URL: `https://github.com/ierlandfan/nl_public_transport`
 6. Select category: "Integration"
 7. Click "Add"
 8. Find "Dutch Public Transport" in the list and install it
@@ -177,4 +177,4 @@ MIT License - see LICENSE file for details
 
 If you find this integration useful, please give it a ⭐ on GitHub!
 
-For issues, please use the [GitHub issue tracker](https://github.com/yourusername/nl_public_transport/issues).
+For issues, please use the [GitHub issue tracker](https://github.com/ierlandfan/nl_public_transport/issues).
