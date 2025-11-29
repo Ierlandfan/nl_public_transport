@@ -14,6 +14,7 @@ from homeassistant.util import dt as dt_util
 from .const import DOMAIN
 from .api import NLPublicTransportAPI
 from .schedule import should_show_route
+from .notifications import NotificationManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,6 +67,7 @@ class NLPublicTransportCoordinator(DataUpdateCoordinator):
         )
         self.api = api
         self.entry = entry
+        self.notification_manager = NotificationManager(hass)
 
     async def _async_update_data(self):
         """Fetch data from API."""
@@ -87,10 +89,17 @@ class NLPublicTransportCoordinator(DataUpdateCoordinator):
                 journey_data = await self.api.get_journey(origin, destination)
                 data[f"{origin}_{destination}"] = journey_data
                 
+                # Check for notifications
+                await self.notification_manager.check_and_notify(route, journey_data)
+                
                 # If reverse is enabled, also fetch reverse journey
                 if reverse:
                     reverse_data = await self.api.get_journey(destination, origin)
                     data[f"{destination}_{origin}"] = reverse_data
+                    
+                    # Check reverse route for notifications
+                    reverse_route = {**route, "origin": destination, "destination": origin}
+                    await self.notification_manager.check_and_notify(reverse_route, reverse_data)
             
             return data
         except Exception as err:

@@ -14,6 +14,13 @@ from homeassistant.helpers import selector
 import homeassistant.helpers.config_validation as cv
 
 from .const import DOMAIN, CONF_ROUTES, CONF_ORIGIN, CONF_DESTINATION, CONF_REVERSE
+from .const import (
+    CONF_NOTIFY_BEFORE,
+    CONF_NOTIFY_SERVICES,
+    CONF_NOTIFY_ON_DELAY,
+    CONF_NOTIFY_ON_DISRUPTION,
+    CONF_MIN_DELAY_THRESHOLD,
+)
 from .api import NLPublicTransportAPI
 
 _LOGGER = logging.getLogger(__name__)
@@ -140,6 +147,15 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
                     CONF_ORIGIN: origin,
                     CONF_DESTINATION: destination,
                     CONF_REVERSE: reverse,
+                    "departure_time": user_input.get("departure_time"),
+                    "days": user_input.get("days", ["mon", "tue", "wed", "thu", "fri"]),
+                    "exclude_holidays": user_input.get("exclude_holidays", True),
+                    "custom_exclude_dates": user_input.get("custom_exclude_dates"),
+                    CONF_NOTIFY_BEFORE: user_input.get(CONF_NOTIFY_BEFORE, 30),
+                    CONF_NOTIFY_SERVICES: user_input.get(CONF_NOTIFY_SERVICES, []),
+                    CONF_NOTIFY_ON_DELAY: user_input.get(CONF_NOTIFY_ON_DELAY, True),
+                    CONF_NOTIFY_ON_DISRUPTION: user_input.get(CONF_NOTIFY_ON_DISRUPTION, True),
+                    CONF_MIN_DELAY_THRESHOLD: user_input.get(CONF_MIN_DELAY_THRESHOLD, 5),
                 })
                 return await self.async_step_init()
             else:
@@ -169,8 +185,29 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
                 ),
                 vol.Optional("exclude_holidays", default=True): bool,
                 vol.Optional("custom_exclude_dates"): str,
+                vol.Optional(CONF_NOTIFY_BEFORE, default=30): vol.All(
+                    vol.Coerce(int), vol.Range(min=5, max=120)
+                ),
+                vol.Optional(CONF_NOTIFY_SERVICES, default=[]): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[],
+                        multiple=True,
+                        custom_value=True,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(CONF_NOTIFY_ON_DELAY, default=True): bool,
+                vol.Optional(CONF_NOTIFY_ON_DISRUPTION, default=True): bool,
+                vol.Optional(CONF_MIN_DELAY_THRESHOLD, default=5): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=60)
+                ),
             }),
             errors=errors,
+            description_placeholders={
+                "notify_before_help": "Send notification X minutes before departure",
+                "notify_services_help": "Enter notify service names (e.g., mobile_app_phone)",
+                "min_delay_help": "Minimum delay in minutes to trigger notification",
+            },
         )
 
     async def async_step_remove_route(
