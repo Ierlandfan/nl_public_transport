@@ -1,0 +1,60 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Dutch Public Transport",
+        "description": "Set up your public transport routes",
+        "menu_options": {
+          "add_route": "Add Route",
+          "finish": "Finish Setup"
+        }
+      },
+      "add_route": {
+        "title": "Add Transport Route",
+        "description": "Enter your origin and destination. You can use station names (e.g., 'Amsterdam Centraal') or station codes.",
+        "data": {
+          "origin": "Origin Station/Stop",
+          "destination": "Destination Station/Stop",
+          "reverse": "Enable reverse route (for return trips)"
+        }
+      },
+      "finish": {
+        "title": "Setup Complete"
+      }
+    },
+    "error": {
+      "invalid_stop": "Invalid station or stop code",
+      "no_routes": "Please add at least one route"
+    },
+    "abort": {
+      "already_configured": "Integration is already configured",
+      "no_routes": "No routes configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Manage Routes",
+        "menu_options": {
+          "add_route": "Add New Route",
+          "remove_route": "Remove Route",
+          "finish": "Save & Exit"
+        }
+      },
+      "add_route": {
+        "title": "Add Transport Route",
+        "data": {
+          "origin": "Origin Station/Stop",
+          "destination": "Destination Station/Stop",
+          "reverse": "Enable reverse route"
+        }
+      },
+      "remove_route": {
+        "title": "Remove Route",
+        "data": {
+          "route": "Select route to remove"
+        }
+      }
+    }
+  }
+}

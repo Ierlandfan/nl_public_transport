@@ -1,0 +1,12 @@
+{
+  "domain": "nl_public_transport",
+  "name": "Dutch Public Transport",
+  "codeowners": ["@yourusername"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/yourusername/nl_public_transport",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/yourusername/nl_public_transport/issues",
+  "requirements": ["aiohttp>=3.8.0"],
+  "version": "1.0.0"
+}
