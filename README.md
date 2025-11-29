@@ -169,6 +169,7 @@ MIT License - see LICENSE file for details
 
 ## Credits
 
+- Based on this great existing integration https://github.com/Juvawa/HomeAssistant9292OvApiSensor
 - Uses public transport data from various Dutch providers
 - Built for Home Assistant
 - HACS compatible
