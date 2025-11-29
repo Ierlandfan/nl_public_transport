@@ -9,9 +9,11 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .api import NLPublicTransportAPI
+from .schedule import should_show_route
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -70,8 +72,13 @@ class NLPublicTransportCoordinator(DataUpdateCoordinator):
         try:
             routes = self.entry.data.get("routes", [])
             data = {}
+            current_time = dt_util.now()
             
             for route in routes:
+                # Check if route should be active today
+                if not should_show_route(route, current_time):
+                    continue
+                
                 origin = route["origin"]
                 destination = route["destination"]
                 reverse = route.get("reverse", False)

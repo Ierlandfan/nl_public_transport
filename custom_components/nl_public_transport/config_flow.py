@@ -150,6 +150,24 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(CONF_ORIGIN): str,
                 vol.Required(CONF_DESTINATION): str,
                 vol.Optional(CONF_REVERSE, default=False): bool,
+                vol.Optional("departure_time"): selector.TimeSelector(),
+                vol.Optional("days", default=["mon", "tue", "wed", "thu", "fri"]): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            {"value": "mon", "label": "Monday"},
+                            {"value": "tue", "label": "Tuesday"},
+                            {"value": "wed", "label": "Wednesday"},
+                            {"value": "thu", "label": "Thursday"},
+                            {"value": "fri", "label": "Friday"},
+                            {"value": "sat", "label": "Saturday"},
+                            {"value": "sun", "label": "Sunday"},
+                        ],
+                        multiple=True,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional("exclude_holidays", default=True): bool,
+                vol.Optional("custom_exclude_dates"): str,
             }),
             errors=errors,
         )

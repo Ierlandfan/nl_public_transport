@@ -15,7 +15,11 @@
         "data": {
           "origin": "Origin Station/Stop",
           "destination": "Destination Station/Stop",
-          "reverse": "Enable reverse route (for return trips)"
+          "reverse": "Enable reverse route (for return trips)",
+          "departure_time": "Departure Time (optional)",
+          "days": "Active Days",
+          "exclude_holidays": "Skip on Public Holidays",
+          "custom_exclude_dates": "Custom Exclude Dates (YYYY-MM-DD, comma-separated)"
         }
       },
       "finish": {
