@@ -1,5 +1,5 @@
 """Schedule checking for routes."""
-from datetime import datetime, date
+from datetime import datetime
 from .holidays import is_dutch_holiday
 
 
@@ -34,7 +34,6 @@ def should_show_route(route_config: dict, current_time: datetime) -> bool:
     # Check departure time (if configured)
     departure_time = route_config.get("departure_time")
     if departure_time:
-        # Only show route within 2 hours of departure
         if isinstance(departure_time, str):
             parts = departure_time.split(":")
             dep_hour = int(parts[0])
