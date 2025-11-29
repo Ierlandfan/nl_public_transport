@@ -74,6 +74,15 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_ORIGIN: origin,
                     CONF_DESTINATION: destination,
                     CONF_REVERSE: reverse,
+                    "departure_time": user_input.get("departure_time"),
+                    "days": user_input.get("days", ["mon", "tue", "wed", "thu", "fri"]),
+                    "exclude_holidays": user_input.get("exclude_holidays", True),
+                    "custom_exclude_dates": user_input.get("custom_exclude_dates"),
+                    CONF_NOTIFY_BEFORE: user_input.get(CONF_NOTIFY_BEFORE, 30),
+                    CONF_NOTIFY_SERVICES: user_input.get(CONF_NOTIFY_SERVICES, []),
+                    CONF_NOTIFY_ON_DELAY: user_input.get(CONF_NOTIFY_ON_DELAY, True),
+                    CONF_NOTIFY_ON_DISRUPTION: user_input.get(CONF_NOTIFY_ON_DISRUPTION, True),
+                    CONF_MIN_DELAY_THRESHOLD: user_input.get(CONF_MIN_DELAY_THRESHOLD, 5),
                 })
                 return await self.async_step_user()
             else:
@@ -85,11 +94,48 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_ORIGIN): str,
                 vol.Required(CONF_DESTINATION): str,
                 vol.Optional(CONF_REVERSE, default=False): bool,
+                vol.Optional("departure_time"): selector.TimeSelector(),
+                vol.Optional("days", default=["mon", "tue", "wed", "thu", "fri"]): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            {"value": "mon", "label": "Monday"},
+                            {"value": "tue", "label": "Tuesday"},
+                            {"value": "wed", "label": "Wednesday"},
+                            {"value": "thu", "label": "Thursday"},
+                            {"value": "fri", "label": "Friday"},
+                            {"value": "sat", "label": "Saturday"},
+                            {"value": "sun", "label": "Sunday"},
+                        ],
+                        multiple=True,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional("exclude_holidays", default=True): bool,
+                vol.Optional("custom_exclude_dates"): str,
+                vol.Optional(CONF_NOTIFY_BEFORE, default=30): vol.All(
+                    vol.Coerce(int), vol.Range(min=5, max=120)
+                ),
+                vol.Optional(CONF_NOTIFY_SERVICES, default=[]): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[],
+                        multiple=True,
+                        custom_value=True,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(CONF_NOTIFY_ON_DELAY, default=True): bool,
+                vol.Optional(CONF_NOTIFY_ON_DISRUPTION, default=True): bool,
+                vol.Optional(CONF_MIN_DELAY_THRESHOLD, default=5): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=60)
+                ),
             }),
             errors=errors,
             description_placeholders={
                 "origin_help": "Enter station/stop name or code (e.g., 'Amsterdam Centraal' or '8400058')",
                 "destination_help": "Enter destination station/stop name or code",
+                "notify_before_help": "Send notification X minutes before departure",
+                "notify_services_help": "Enter notify service names (e.g., mobile_app_phone)",
+                "min_delay_help": "Minimum delay in minutes to trigger notification",
             },
         )
 
