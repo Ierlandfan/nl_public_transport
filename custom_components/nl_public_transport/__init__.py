@@ -94,12 +94,18 @@ class NLPublicTransportCoordinator(DataUpdateCoordinator):
                 
                 # If reverse is enabled, also fetch reverse journey
                 if reverse:
-                    reverse_data = await self.api.get_journey(destination, origin)
-                    data[f"{destination}_{origin}"] = reverse_data
+                    # Create reverse route config with return_time as departure_time
+                    reverse_route_config = {**route, "origin": destination, "destination": origin}
+                    if route.get("return_time"):
+                        reverse_route_config["departure_time"] = route.get("return_time")
                     
-                    # Check reverse route for notifications
-                    reverse_route = {**route, "origin": destination, "destination": origin}
-                    await self.notification_manager.check_and_notify(reverse_route, reverse_data)
+                    # Check if reverse route should be active (based on return_time)
+                    if should_show_route(reverse_route_config, current_time):
+                        reverse_data = await self.api.get_journey(destination, origin)
+                        data[f"{destination}_{origin}"] = reverse_data
+                        
+                        # Check reverse route for notifications
+                        await self.notification_manager.check_and_notify(reverse_route_config, reverse_data)
             
             return data
         except Exception as err:

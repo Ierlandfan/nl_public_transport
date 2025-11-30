@@ -68,9 +68,13 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             origin = user_input.get(CONF_ORIGIN)
             destination = user_input.get(CONF_DESTINATION)
             reverse = user_input.get(CONF_REVERSE, False)
+            return_time = user_input.get("return_time")
 
-            if origin and destination:
-                self.routes.append({
+            # Validate: if reverse is enabled, return_time is required
+            if reverse and not return_time:
+                errors["base"] = "return_time_required"
+            elif origin and destination:
+                route_data = {
                     CONF_ORIGIN: origin,
                     CONF_DESTINATION: destination,
                     CONF_REVERSE: reverse,
@@ -83,7 +87,13 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_NOTIFY_ON_DELAY: user_input.get(CONF_NOTIFY_ON_DELAY, True),
                     CONF_NOTIFY_ON_DISRUPTION: user_input.get(CONF_NOTIFY_ON_DISRUPTION, True),
                     CONF_MIN_DELAY_THRESHOLD: user_input.get(CONF_MIN_DELAY_THRESHOLD, 5),
-                })
+                }
+                
+                # Add return_time if reverse is enabled
+                if reverse and return_time:
+                    route_data["return_time"] = return_time
+                
+                self.routes.append(route_data)
                 return await self.async_step_user()
             else:
                 errors["base"] = "invalid_stop"
@@ -95,6 +105,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_DESTINATION): str,
                 vol.Optional(CONF_REVERSE, default=False): bool,
                 vol.Optional("departure_time"): selector.TimeSelector(),
+                vol.Optional("return_time"): selector.TimeSelector(),
                 vol.Optional("days", default=["mon", "tue", "wed", "thu", "fri"]): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=[
@@ -133,6 +144,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders={
                 "origin_help": "Enter station/stop name or code (e.g., 'Amsterdam Centraal' or '8400058')",
                 "destination_help": "Enter destination station/stop name or code",
+                "return_time_help": "Return departure time (required if reverse enabled)",
                 "notify_before_help": "Send notification X minutes before departure",
                 "notify_services_help": "Enter notify service names (e.g., mobile_app_phone)",
                 "min_delay_help": "Minimum delay in minutes to trigger notification",
@@ -187,9 +199,13 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
             origin = user_input.get(CONF_ORIGIN)
             destination = user_input.get(CONF_DESTINATION)
             reverse = user_input.get(CONF_REVERSE, False)
+            return_time = user_input.get("return_time")
 
-            if origin and destination:
-                self.routes.append({
+            # Validate: if reverse is enabled, return_time is required
+            if reverse and not return_time:
+                errors["base"] = "return_time_required"
+            elif origin and destination:
+                route_data = {
                     CONF_ORIGIN: origin,
                     CONF_DESTINATION: destination,
                     CONF_REVERSE: reverse,
@@ -202,7 +218,13 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
                     CONF_NOTIFY_ON_DELAY: user_input.get(CONF_NOTIFY_ON_DELAY, True),
                     CONF_NOTIFY_ON_DISRUPTION: user_input.get(CONF_NOTIFY_ON_DISRUPTION, True),
                     CONF_MIN_DELAY_THRESHOLD: user_input.get(CONF_MIN_DELAY_THRESHOLD, 5),
-                })
+                }
+                
+                # Add return_time if reverse is enabled
+                if reverse and return_time:
+                    route_data["return_time"] = return_time
+                
+                self.routes.append(route_data)
                 return await self.async_step_init()
             else:
                 errors["base"] = "invalid_stop"
@@ -214,6 +236,7 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(CONF_DESTINATION): str,
                 vol.Optional(CONF_REVERSE, default=False): bool,
                 vol.Optional("departure_time"): selector.TimeSelector(),
+                vol.Optional("return_time"): selector.TimeSelector(),
                 vol.Optional("days", default=["mon", "tue", "wed", "thu", "fri"]): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=[

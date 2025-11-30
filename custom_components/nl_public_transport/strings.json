@@ -17,9 +17,15 @@
           "destination": "Destination Station/Stop",
           "reverse": "Enable reverse route (for return trips)",
           "departure_time": "Departure Time (optional)",
+          "return_time": "Return Departure Time (required if reverse enabled)",
           "days": "Active Days",
           "exclude_holidays": "Skip on Public Holidays",
-          "custom_exclude_dates": "Custom Exclude Dates (YYYY-MM-DD, comma-separated)"
+          "custom_exclude_dates": "Custom Exclude Dates (YYYY-MM-DD, comma-separated)",
+          "notify_before": "Notify X minutes before departure",
+          "notify_services": "Notification Services",
+          "notify_on_delay": "Notify on Delays",
+          "notify_on_disruption": "Notify on Disruptions",
+          "min_delay_threshold": "Minimum Delay to Notify (minutes)"
         }
       },
       "finish": {
@@ -28,7 +34,8 @@
     },
     "error": {
       "invalid_stop": "Invalid station or stop code",
-      "no_routes": "Please add at least one route"
+      "no_routes": "Please add at least one route",
+      "return_time_required": "Return time is required when reverse route is enabled"
     },
     "abort": {
       "already_configured": "Integration is already configured",
@@ -50,7 +57,13 @@
         "data": {
           "origin": "Origin Station/Stop",
           "destination": "Destination Station/Stop",
-          "reverse": "Enable reverse route"
+          "reverse": "Enable reverse route",
+          "return_time": "Return Departure Time (required if reverse enabled)",
+          "notify_before": "Notify X minutes before departure",
+          "notify_services": "Notification Services",
+          "notify_on_delay": "Notify on Delays",
+          "notify_on_disruption": "Notify on Disruptions",
+          "min_delay_threshold": "Minimum Delay to Notify (minutes)"
         }
       },
       "remove_route": {
