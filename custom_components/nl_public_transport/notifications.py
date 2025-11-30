@@ -14,6 +14,8 @@ from .const import (
     EVENT_DELAY_DETECTED,
     EVENT_DISRUPTION_DETECTED,
     EVENT_DEPARTURE_REMINDER,
+    EVENT_REROUTE_SUGGESTED,
+    EVENT_MISSED_CONNECTION,
     CONF_NOTIFY_BEFORE,
     CONF_NOTIFY_SERVICES,
     CONF_NOTIFY_ON_DELAY,
@@ -83,6 +85,13 @@ class NotificationManager:
                 await self._send_disruption_notification(route_config, journey_data)
                 await self._fire_disruption_event(route_config, journey_data)
                 self._mark_notified(route_key, "disruption")
+        
+        # Check for missed connections or reroute recommendations
+        if journey_data.get("missed_connection") or journey_data.get("reroute_recommended"):
+            if not self._was_recently_notified(route_key, "reroute"):
+                await self._send_reroute_notification(route_config, journey_data)
+                await self._fire_reroute_event(route_config, journey_data)
+                self._mark_notified(route_key, "reroute")
     
     async def _send_delay_notification(
         self,
@@ -214,6 +223,81 @@ class NotificationManager:
                 "departure_time": journey_data.get("departure_time"),
                 "on_time": journey_data.get("on_time", True),
                 "delay_minutes": journey_data.get("delay", 0),
+            },
+        )
+    
+    async def _send_reroute_notification(
+        self,
+        route_config: dict[str, Any],
+        journey_data: dict[str, Any],
+    ) -> None:
+        """Send reroute suggestion notification."""
+        notify_services = route_config.get(CONF_NOTIFY_SERVICES, [])
+        
+        if not notify_services:
+            return
+        
+        origin = route_config.get("origin")
+        destination = route_config.get("destination")
+        alternatives = journey_data.get("alternatives", [])
+        missed_connection = journey_data.get("missed_connection", False)
+        
+        # Build message
+        if missed_connection:
+            title = "🚨 Missed Connection Alert"
+            intro = f"Your connection from {origin} to {destination} is at risk!\n\n"
+        else:
+            title = "🔄 Alternative Route Suggested"
+            intro = f"Delays detected on {origin} → {destination}\n\n"
+        
+        # Get best alternative
+        if alternatives:
+            best_alt = alternatives[0]
+            alt_arrival = self._format_time(best_alt.get("arrival_time"))
+            primary_arrival = self._format_time(journey_data.get("arrival_time"))
+            
+            message = (
+                f"{intro}"
+                f"Current route arrives: {primary_arrival}\n"
+                f"Alternative arrives: {alt_arrival}\n\n"
+                f"Alternative route:\n"
+            )
+            
+            # Add alternative journey description
+            for desc in best_alt.get("journey_description", [])[:3]:  # First 3 legs
+                message += f"  • {desc}\n"
+        else:
+            message = f"{intro}Please check 9292.nl for alternatives."
+        
+        await self._send_notifications(notify_services, title, message)
+    
+    async def _fire_reroute_event(
+        self,
+        route_config: dict[str, Any],
+        journey_data: dict[str, Any],
+    ) -> None:
+        """Fire reroute suggested event."""
+        event_type = EVENT_MISSED_CONNECTION if journey_data.get("missed_connection") else EVENT_REROUTE_SUGGESTED
+        
+        alternatives = journey_data.get("alternatives", [])
+        alt_data = []
+        for alt in alternatives[:3]:  # Include top 3 alternatives
+            alt_data.append({
+                "arrival_time": alt.get("arrival_time"),
+                "departure_time": alt.get("departure_time"),
+                "delay": alt.get("delay", 0),
+                "description": alt.get("journey_description", []),
+            })
+        
+        self.hass.bus.async_fire(
+            event_type,
+            {
+                "origin": route_config.get("origin"),
+                "destination": route_config.get("destination"),
+                "primary_delay": journey_data.get("delay", 0),
+                "missed_connection": journey_data.get("missed_connection", False),
+                "alternatives": alt_data,
+                "reroute_recommended": journey_data.get("reroute_recommended", False),
             },
         )
     

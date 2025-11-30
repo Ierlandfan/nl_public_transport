@@ -27,6 +27,8 @@ ATTR_ROUTE_COORDINATES = "route_coordinates"
 EVENT_DELAY_DETECTED = f"{DOMAIN}_delay_detected"
 EVENT_DISRUPTION_DETECTED = f"{DOMAIN}_disruption_detected"
 EVENT_DEPARTURE_REMINDER = f"{DOMAIN}_departure_reminder"
+EVENT_REROUTE_SUGGESTED = f"{DOMAIN}_reroute_suggested"
+EVENT_MISSED_CONNECTION = f"{DOMAIN}_missed_connection"
 
 # Default values
 DEFAULT_NOTIFY_BEFORE = 30  # minutes

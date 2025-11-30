@@ -97,7 +97,26 @@ class NLPublicTransportSensor(CoordinatorEntity, SensorEntity):
             ATTR_ROUTE_COORDINATES: data.get("coordinates", []),
             "origin": self._origin,
             "destination": self._destination,
+            "missed_connection": data.get("missed_connection", False),
+            "reroute_recommended": data.get("reroute_recommended", False),
+            "journey_description": data.get("journey_description", []),
+            "has_alternatives": data.get("has_alternatives", False),
         }
+        
+        # Add alternative routes if available
+        alternatives = data.get("alternatives", [])
+        if alternatives:
+            attrs["alternative_count"] = len(alternatives)
+            attrs["best_alternative_arrival"] = alternatives[0].get("arrival_time")
+            attrs["alternatives"] = [
+                {
+                    "arrival": alt.get("arrival_time"),
+                    "departure": alt.get("departure_time"),
+                    "delay": alt.get("delay", 0),
+                    "description": alt.get("journey_description", []),
+                }
+                for alt in alternatives[:3]  # Include top 3 alternatives
+            ]
         
         return attrs
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import aiohttp
 
@@ -26,11 +26,12 @@ class NLPublicTransportAPI:
             params = {
                 "from": origin,
                 "to": destination,
-                "results": 3,
+                "results": 5,  # Get 5 alternatives for rerouting
                 "stopovers": True,
+                "transfers": -1,  # Include all transfer options
             }
             
-            async with self.session.get(url, params=params, timeout=10) as response:
+            async with self.session.get(url, params=params, timeout=15) as response:
                 if response.status != 200:
                     _LOGGER.error(f"API returned status {response.status}")
                     return self._get_default_data()
@@ -40,9 +41,25 @@ class NLPublicTransportAPI:
                 if not data.get("journeys"):
                     return self._get_default_data()
                 
-                journey = data["journeys"][0]
+                # Parse all journey alternatives
+                journeys = data["journeys"]
+                primary_journey = self._parse_journey(journeys[0])
                 
-                return self._parse_journey(journey)
+                # Add alternative routes
+                alternatives = []
+                for journey in journeys[1:5]:  # Get up to 4 alternatives
+                    alt = self._parse_journey(journey)
+                    alternatives.append(alt)
+                
+                primary_journey["alternatives"] = alternatives
+                primary_journey["has_alternatives"] = len(alternatives) > 0
+                
+                # Check if reroute needed due to delays
+                primary_journey["reroute_recommended"] = self._should_reroute(
+                    primary_journey, alternatives
+                )
+                
+                return primary_journey
                 
         except Exception as err:
             _LOGGER.error(f"Error fetching journey data: {err}")
@@ -87,12 +104,39 @@ class NLPublicTransportAPI:
         departure = first_leg.get("departure")
         arrival = last_leg.get("arrival")
         
-        delay_minutes = 0
-        delay_reason = None
+        # Check all legs for delays
+        total_delay = 0
+        delay_reasons = []
+        missed_connection = False
         
-        if first_leg.get("departureDelay"):
-            delay_minutes = first_leg["departureDelay"] / 60
+        for i, leg in enumerate(legs):
+            leg_delay = 0
+            if leg.get("departureDelay"):
+                leg_delay = leg["departureDelay"] / 60
+                total_delay = max(total_delay, leg_delay)
             
+            if leg.get("arrivalDelay"):
+                arr_delay = leg["arrivalDelay"] / 60
+                total_delay = max(total_delay, arr_delay)
+            
+            # Check for missed connections
+            if i < len(legs) - 1 and leg_delay > 0:
+                next_leg = legs[i + 1]
+                connection_time = self._calculate_connection_time(leg, next_leg)
+                if connection_time < 2:  # Less than 2 minutes
+                    missed_connection = True
+            
+            # Collect delay reasons
+            if leg.get("remarks"):
+                for remark in leg["remarks"]:
+                    if remark.get("type") in ["warning", "status"]:
+                        text = remark.get("text") or remark.get("summary")
+                        if text and text not in delay_reasons:
+                            delay_reasons.append(text)
+        
+        delay_reason = "; ".join(delay_reasons) if delay_reasons else None
+        
+        # Parse route coordinates
         coordinates = []
         for leg in legs:
             if leg.get("origin", {}).get("location"):
@@ -102,18 +146,84 @@ class NLPublicTransportAPI:
                 loc = leg["destination"]["location"]
                 coordinates.append([loc.get("latitude"), loc.get("longitude")])
         
-        vehicle_types = [leg.get("line", {}).get("product", "Unknown") for leg in legs if leg.get("line")]
+        # Get vehicle types and create journey description
+        vehicle_types = []
+        journey_description = []
+        for leg in legs:
+            product = leg.get("line", {}).get("product", "Walk")
+            line_name = leg.get("line", {}).get("name", "Walk")
+            origin_name = leg.get("origin", {}).get("name", "")
+            dest_name = leg.get("destination", {}).get("name", "")
+            
+            vehicle_types.append(product)
+            journey_description.append(f"{product} {line_name}: {origin_name} → {dest_name}")
         
         return {
             "departure_time": departure,
             "arrival_time": arrival,
-            "delay": delay_minutes,
+            "delay": total_delay,
             "delay_reason": delay_reason,
             "platform": first_leg.get("departurePlatform"),
             "vehicle_types": vehicle_types,
             "coordinates": coordinates,
-            "on_time": delay_minutes <= 0,
+            "on_time": total_delay <= 0,
+            "missed_connection": missed_connection,
+            "journey_description": journey_description,
+            "legs": self._parse_legs(legs),
         }
+    
+    def _parse_legs(self, legs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Parse individual journey legs."""
+        parsed_legs = []
+        for leg in legs:
+            parsed_legs.append({
+                "origin": leg.get("origin", {}).get("name"),
+                "destination": leg.get("destination", {}).get("name"),
+                "departure": leg.get("departure"),
+                "arrival": leg.get("arrival"),
+                "product": leg.get("line", {}).get("product", "Walk"),
+                "line": leg.get("line", {}).get("name"),
+                "platform": leg.get("departurePlatform"),
+                "delay": (leg.get("departureDelay") or 0) / 60,
+            })
+        return parsed_legs
+    
+    def _calculate_connection_time(self, leg1: dict, leg2: dict) -> float:
+        """Calculate connection time between two legs in minutes."""
+        try:
+            arr_time = datetime.fromisoformat(leg1.get("arrival", "").replace("Z", "+00:00"))
+            dep_time = datetime.fromisoformat(leg2.get("departure", "").replace("Z", "+00:00"))
+            return (dep_time - arr_time).total_seconds() / 60
+        except Exception:
+            return 999  # Return large number if can't calculate
+    
+    def _should_reroute(self, primary: dict[str, Any], alternatives: list[dict[str, Any]]) -> bool:
+        """Determine if rerouting is recommended."""
+        # Reroute if:
+        # 1. Primary route has significant delay (>10 min)
+        # 2. Missed connection detected
+        # 3. Alternative is significantly faster
+        
+        if primary.get("missed_connection"):
+            return True
+        
+        if primary.get("delay", 0) > 10:
+            # Check if any alternative is at least 5 minutes faster
+            try:
+                primary_arrival = datetime.fromisoformat(
+                    primary.get("arrival_time", "").replace("Z", "+00:00")
+                )
+                for alt in alternatives:
+                    alt_arrival = datetime.fromisoformat(
+                        alt.get("arrival_time", "").replace("Z", "+00:00")
+                    )
+                    time_diff = (primary_arrival - alt_arrival).total_seconds() / 60
+                    if time_diff > 5:  # Alternative is 5+ min faster
+                        return True
+            except Exception:
+                pass
+        
+        return False
 
     def _get_default_data(self) -> dict[str, Any]:
         """Return default data structure."""
@@ -126,4 +236,10 @@ class NLPublicTransportAPI:
             "vehicle_types": [],
             "coordinates": [],
             "on_time": True,
+            "missed_connection": False,
+            "journey_description": [],
+            "legs": [],
+            "alternatives": [],
+            "has_alternatives": False,
+            "reroute_recommended": False,
         }
