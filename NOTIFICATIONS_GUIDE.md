@@ -15,10 +15,17 @@ Get automatic notifications sent to your phone/device when delays or disruptions
 1. **Settings** → **Devices & Services** → **Dutch Public Transport**
 2. Click **CONFIGURE**
 3. Add or Edit a route
-4. Configure notification settings:
+4. Configure route and notification settings:
 
 | Setting | Description | Default |
 |---------|-------------|---------|
+| **Origin** | Starting station/stop | Required |
+| **Destination** | Destination station/stop | Required |
+| **Reverse** | Enable reverse route (return trip) | ❌ No |
+| **Departure Time** | Outbound departure time | Optional |
+| **Return Time** | Return departure time (required if reverse enabled) | Optional |
+| **Days** | Active days of week | Mon-Fri |
+| **Exclude Holidays** | Skip on public holidays | ✅ Yes |
 | **Notify Before** | Minutes before departure to check and notify | 30 |
 | **Notify Services** | Notification services (e.g., `mobile_app_phone`) | None |
 | **Notify on Delay** | Send notification when delays detected | ✅ Yes |
@@ -27,16 +34,21 @@ Get automatic notifications sent to your phone/device when delays or disruptions
 
 ### Example Configuration
 
-**Route:** Home → Amsterdam  
-**Departure:** Monday 07:00  
+**Route:** Home → Amsterdam Centraal (with reverse)  
+**Departure:** Monday-Friday 07:00 (to work)  
+**Return Time:** Monday-Friday 17:00 (from work)  
+**Reverse:** ✅ Enabled  
 **Notify Before:** 30 minutes  
 **Notify Services:** `mobile_app_iphone`, `mobile_app_android`  
 **Min Delay:** 5 minutes
 
 **Result:**
-- At **06:30** (30 min before), the integration checks your bus/train
-- If delay ≥ 5 minutes or disruption detected → sends notification to your phone
-- Notification includes: route, departure time, delay/issue
+- At **06:30** (30 min before outbound departure), checks Home → Amsterdam
+  - If delay ≥ 5 minutes → sends notification to your phone
+- At **16:30** (30 min before return departure), checks Amsterdam → Home
+  - If delay ≥ 5 minutes → sends notification to your phone
+- Each direction monitored independently with its own notification schedule
+- Only active on weekdays, skips weekends
 
 ---
 
@@ -260,19 +272,36 @@ To find your notification service names:
 3. **Within Window**: Checks for delays/disruptions and sends notifications
 4. **Outside Window**: No notifications (avoids spam)
 
-### Example Timeline
+### Example Timeline (with Reverse Route)
 
-**Route:** Home → Amsterdam, Departure: 07:00, Notify Before: 30 min
+**Route:** Home ↔ Amsterdam Centraal  
+**Departure:** 07:00 (outbound)  
+**Return Time:** 17:00 (return)  
+**Notify Before:** 30 min
 
+**Morning (Outbound):**
 - **06:25** - No action (outside window)
-- **06:30** - Window opens, checks status
+- **06:30** - Window opens, checks Home → Amsterdam
   - Delay detected → Notification sent
   - Event `nl_public_transport_delay_detected` fired
   - Event `nl_public_transport_departure_reminder` fired
 - **06:31-06:40** - Cooldown (no duplicate notifications)
 - **06:41** - Can notify again if status changes
 - **07:00** - Departure time
-- **07:01** - Window closed (no more notifications for this departure)
+- **07:01** - Window closed for outbound
+
+**Afternoon/Evening (Return):**
+- **16:25** - No action (outside return window)
+- **16:30** - Window opens, checks Amsterdam → Home
+  - Delay detected → Notification sent (independent from morning)
+  - Events fired for return journey
+- **17:00** - Return departure time
+- **17:01** - Window closed for return
+
+**Key Points:**
+- Outbound and return trips monitored **independently**
+- Each has its own notification schedule
+- Same notification settings apply to both directions
 
 ### Anti-Spam Protection
 
@@ -284,24 +313,41 @@ To find your notification service names:
 
 ## 🎯 Best Practices
 
-### For Commuters
+### For Commuters (Recommended)
 
 **Setup:**
+- Origin: Your home station
+- Destination: Work/school station
+- Reverse: ✅ **Enabled**
+- Departure Time: **07:00** (adjust to your schedule)
+- Return Time: **17:00** (adjust to your schedule)
+- Days: **Mon-Fri**
+- Exclude Holidays: ✅
 - Notify Before: **30 minutes**
 - Min Delay: **5 minutes**
 - Notify Services: Your phone app
 - Notify on Delay: ✅
 - Notify on Disruption: ✅
 
-**Why:** Gives you time to adjust plans if delays occur.
+**Why:** 
+- Single route handles both morning and evening commute
+- 30 minutes gives you time to adjust plans
+- Notifications for both directions automatically
+- Skips weekends and holidays
 
-### For Multiple Routes
+### For Reverse Routes vs Separate Routes
 
-Create separate routes for:
-- Morning commute (Home → Work)
-- Evening commute (Work → Home)
+**Option 1: Use Reverse (Recommended)**
+- **1 Route** with reverse enabled
+- Same notification settings for both directions
+- Cleaner, easier to manage
+- **Best for:** Regular commutes with similar schedules
 
-Each can have different notification settings!
+**Option 2: Separate Routes**
+- **2 Routes** (one for each direction)
+- Different notification settings per direction
+- More granular control
+- **Best for:** Asymmetric schedules (e.g., different times on different days)
 
 ### For Critical Routes
 
