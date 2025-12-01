@@ -68,7 +68,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_add_route(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Handle adding a route - step 1: search for stations."""
+        """Handle adding a route - step 1: search and configure."""
         errors = {}
 
         if user_input is not None:
@@ -76,49 +76,49 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             destination_search = user_input.get("destination_search")
             
             if origin_search and destination_search:
-                # Ensure API is initialized
-                if self.api is None:
-                    session = async_get_clientsession(self.hass)
-                    self.api = NLPublicTransportAPI(session)
+                # Store search terms and other config first
+                self.search_data = {
+                    "reverse": user_input.get(CONF_REVERSE, False),
+                    "departure_time": user_input.get("departure_time"),
+                    "return_time": user_input.get("return_time"),
+                    "days": user_input.get("days", ["mon", "tue", "wed", "thu", "fri"]),
+                    "exclude_holidays": user_input.get("exclude_holidays", True),
+                    "custom_exclude_dates": user_input.get("custom_exclude_dates"),
+                    CONF_NOTIFY_BEFORE: user_input.get(CONF_NOTIFY_BEFORE, 30),
+                    CONF_NOTIFY_SERVICES: user_input.get(CONF_NOTIFY_SERVICES, []),
+                    CONF_NOTIFY_ON_DELAY: user_input.get(CONF_NOTIFY_ON_DELAY, True),
+                    CONF_NOTIFY_ON_DISRUPTION: user_input.get(CONF_NOTIFY_ON_DISRUPTION, True),
+                    CONF_MIN_DELAY_THRESHOLD: user_input.get(CONF_MIN_DELAY_THRESHOLD, 5),
+                }
                 
-                # Search for stations
-                try:
-                    _LOGGER.info(f"Searching for origin: {origin_search}")
-                    self.origin_options = await self.api.search_location(origin_search)
+                # Validate reverse route
+                if self.search_data["reverse"] and not self.search_data.get("return_time"):
+                    errors["base"] = "return_time_required"
+                else:
+                    # Ensure API is initialized
+                    if self.api is None:
+                        session = async_get_clientsession(self.hass)
+                        self.api = NLPublicTransportAPI(session)
                     
-                    _LOGGER.info(f"Searching for destination: {destination_search}")
-                    self.destination_options = await self.api.search_location(destination_search)
-                    
-                    if not self.origin_options:
-                        errors["base"] = "invalid_origin"
-                    elif not self.destination_options:
-                        errors["base"] = "invalid_destination"
-                    else:
-                        # Store search terms and other config
-                        self.search_data = {
-                            "reverse": user_input.get(CONF_REVERSE, False),
-                            "departure_time": user_input.get("departure_time"),
-                            "return_time": user_input.get("return_time"),
-                            "days": user_input.get("days", ["mon", "tue", "wed", "thu", "fri"]),
-                            "exclude_holidays": user_input.get("exclude_holidays", True),
-                            "custom_exclude_dates": user_input.get("custom_exclude_dates"),
-                            CONF_NOTIFY_BEFORE: user_input.get(CONF_NOTIFY_BEFORE, 30),
-                            CONF_NOTIFY_SERVICES: user_input.get(CONF_NOTIFY_SERVICES, []),
-                            CONF_NOTIFY_ON_DELAY: user_input.get(CONF_NOTIFY_ON_DELAY, True),
-                            CONF_NOTIFY_ON_DISRUPTION: user_input.get(CONF_NOTIFY_ON_DISRUPTION, True),
-                            CONF_MIN_DELAY_THRESHOLD: user_input.get(CONF_MIN_DELAY_THRESHOLD, 5),
-                        }
+                    # Search for stations
+                    try:
+                        _LOGGER.info(f"Searching for origin: {origin_search}")
+                        self.origin_options = await self.api.search_location(origin_search)
                         
-                        # Validate reverse route
-                        if self.search_data["reverse"] and not self.search_data.get("return_time"):
-                            errors["base"] = "return_time_required"
+                        _LOGGER.info(f"Searching for destination: {destination_search}")
+                        self.destination_options = await self.api.search_location(destination_search)
+                        
+                        if not self.origin_options:
+                            errors["base"] = "invalid_origin"
+                        elif not self.destination_options:
+                            errors["base"] = "invalid_destination"
                         else:
-                            # Go to station selection step
+                            # Go directly to combined station and line selection
                             return await self.async_step_select_stations()
-                        
-                except Exception as err:
-                    _LOGGER.error(f"Error searching stations: {err}", exc_info=True)
-                    errors["base"] = "cannot_connect"
+                            
+                    except Exception as err:
+                        _LOGGER.error(f"Error searching stations: {err}", exc_info=True)
+                        errors["base"] = "cannot_connect"
             else:
                 errors["base"] = "invalid_stop"
 
@@ -166,12 +166,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }),
             errors=errors,
             description_placeholders={
-                "origin_help": "Enter city or station name (e.g., 'Hoorn', 'Amsterdam Sloterdijk')",
-                "destination_help": "Enter destination city or station name. Be specific for better results.",
-                "return_time_help": "Return departure time (required if reverse enabled)",
-                "notify_before_help": "Send notification X minutes before departure",
-                "notify_services_help": "Enter notify service names (e.g., mobile_app_phone)",
-                "min_delay_help": "Minimum delay in minutes to trigger notification",
+                "search_help": "Click Submit to search for matching stations",
             },
         )
     
@@ -238,8 +233,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
             }),
             description_placeholders={
-                "found_origins": f"Found {len(self.origin_options)} origin stations. Select the exact one you want.",
-                "found_destinations": f"Found {len(self.destination_options)} destination stations. Select the exact one you want.",
+                "instructions": f"Found {len(self.origin_options)} origin and {len(self.destination_options)} destination stations. Select the exact ones below, then Submit to see available lines.",
             },
         )
 

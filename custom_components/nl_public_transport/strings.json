@@ -11,10 +11,10 @@
       },
       "add_route": {
         "title": "Add Transport Route",
-        "description": "Enter your origin and destination. You can use station names (e.g., 'Amsterdam Centraal') or station codes.",
+        "description": "Enter origin and destination, then click Submit to search for stations.",
         "data": {
-          "origin_search": "Origin City/Station",
-          "destination_search": "Destination City/Station",
+          "origin_search": "Origin (city or station)",
+          "destination_search": "Destination (city or station)",
           "reverse": "Enable reverse route (for return trips)",
           "departure_time": "Departure Time (optional)",
           "return_time": "Return Departure Time (required if reverse enabled)",
@@ -29,11 +29,11 @@
         }
       },
       "select_stations": {
-        "title": "Select Exact Stations",
-        "description": "{found_origins}. {found_destinations}. Choose the exact stations you want to use.",
+        "title": "Select Stations and Lines",
+        "description": "Choose your exact stations from the search results, then select which lines to track.",
         "data": {
-          "selected_origin": "Select Origin Station",
-          "selected_destination": "Select Destination Station"
+          "selected_origin": "Origin Station",
+          "selected_destination": "Destination Station"
         }
       },
       "select_lines": {
