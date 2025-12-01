@@ -137,7 +137,6 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
                 vol.Optional("exclude_holidays", default=True): bool,
                 vol.Optional("custom_exclude_dates"): str,
-                vol.Optional(CONF_LINE_FILTER, default=""): str,
                 vol.Optional(CONF_NOTIFY_BEFORE, default=30): vol.All(
                     vol.Coerce(int), vol.Range(min=5, max=120)
                 ),
@@ -160,7 +159,6 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "origin_help": "Enter station/stop name or code (e.g., 'Amsterdam Centraal' or '8400058')",
                 "destination_help": "Enter destination station/stop name or code",
                 "return_time_help": "Return departure time (required if reverse enabled)",
-                "line_filter_help": "Filter by line numbers (comma-separated, e.g., '800,900' or 'IC 3500')",
                 "notify_before_help": "Send notification X minutes before departure",
                 "notify_services_help": "Enter notify service names (e.g., mobile_app_phone)",
                 "min_delay_help": "Minimum delay in minutes to trigger notification",
@@ -184,7 +182,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self.routes.append(self.route_data)
             return await self.async_step_user()
         
-        # Build options for multi-select
+        # Build options for multi-select with checkboxes
         line_options = []
         for line in self.available_lines:
             label = f"{line['product']} {line['name']}"
@@ -202,7 +200,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     selector.SelectSelectorConfig(
                         options=line_options,
                         multiple=True,
-                        mode=selector.SelectSelectorMode.DROPDOWN,
+                        mode=selector.SelectSelectorMode.LIST,
                     )
                 ),
             }),
@@ -444,7 +442,7 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
             self.routes.append(self.route_data)
             return await self.async_step_init()
         
-        # Build options for multi-select
+        # Build options for multi-select with checkboxes
         line_options = []
         for line in self.available_lines:
             label = f"{line['product']} {line['name']}"
@@ -462,7 +460,7 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
                     selector.SelectSelectorConfig(
                         options=line_options,
                         multiple=True,
-                        mode=selector.SelectSelectorMode.DROPDOWN,
+                        mode=selector.SelectSelectorMode.LIST,
                     )
                 ),
             }),
