@@ -27,7 +27,7 @@ class NLPublicTransportAPI:
                 "from": origin,
                 "to": destination,
                 "results": num_departures * 2 if line_filter else num_departures,  # Get more if filtering
-                "stopovers": True,
+                "stopovers": "true",
                 "transfers": -1,  # Include all transfer options
             }
             
