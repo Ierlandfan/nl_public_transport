@@ -39,6 +39,9 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self.api: NLPublicTransportAPI | None = None
         self.route_data: dict[str, Any] = {}
         self.available_lines: list[dict[str, Any]] = []
+        self.origin_options: list[dict[str, Any]] = []
+        self.destination_options: list[dict[str, Any]] = []
+        self.search_data: dict[str, Any] = {}
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -65,77 +68,65 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_add_route(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Handle adding a route - step 1: basic info."""
+        """Handle adding a route - step 1: search for stations."""
         errors = {}
 
         if user_input is not None:
-            origin = user_input.get(CONF_ORIGIN)
-            destination = user_input.get(CONF_DESTINATION)
+            origin_search = user_input.get("origin_search")
+            destination_search = user_input.get("destination_search")
             
-            if origin and destination:
-                # Store basic route info
-                self.route_data = {
-                    CONF_ORIGIN: origin,
-                    CONF_DESTINATION: destination,
-                    CONF_REVERSE: user_input.get(CONF_REVERSE, False),
-                    "departure_time": user_input.get("departure_time"),
-                    "return_time": user_input.get("return_time"),
-                    "days": user_input.get("days", ["mon", "tue", "wed", "thu", "fri"]),
-                    "exclude_holidays": user_input.get("exclude_holidays", True),
-                    "custom_exclude_dates": user_input.get("custom_exclude_dates"),
-                    CONF_NOTIFY_BEFORE: user_input.get(CONF_NOTIFY_BEFORE, 30),
-                    CONF_NOTIFY_SERVICES: user_input.get(CONF_NOTIFY_SERVICES, []),
-                    CONF_NOTIFY_ON_DELAY: user_input.get(CONF_NOTIFY_ON_DELAY, True),
-                    CONF_NOTIFY_ON_DISRUPTION: user_input.get(CONF_NOTIFY_ON_DISRUPTION, True),
-                    CONF_MIN_DELAY_THRESHOLD: user_input.get(CONF_MIN_DELAY_THRESHOLD, 5),
-                }
+            if origin_search and destination_search:
+                # Ensure API is initialized
+                if self.api is None:
+                    session = async_get_clientsession(self.hass)
+                    self.api = NLPublicTransportAPI(session)
                 
-                # Validate reverse route
-                if self.route_data[CONF_REVERSE] and not self.route_data.get("return_time"):
-                    errors["base"] = "return_time_required"
-                else:
-                    # Ensure API is initialized
-                    if self.api is None:
-                        session = async_get_clientsession(self.hass)
-                        self.api = NLPublicTransportAPI(session)
+                # Search for stations
+                try:
+                    _LOGGER.info(f"Searching for origin: {origin_search}")
+                    self.origin_options = await self.api.search_location(origin_search)
                     
-                    # Validate station names first
-                    try:
-                        _LOGGER.info(f"Validating stations: {origin} and {destination}")
-                        origin_results = await self.api.search_location(origin)
-                        dest_results = await self.api.search_location(destination)
+                    _LOGGER.info(f"Searching for destination: {destination_search}")
+                    self.destination_options = await self.api.search_location(destination_search)
+                    
+                    if not self.origin_options:
+                        errors["base"] = "invalid_origin"
+                    elif not self.destination_options:
+                        errors["base"] = "invalid_destination"
+                    else:
+                        # Store search terms and other config
+                        self.search_data = {
+                            "reverse": user_input.get(CONF_REVERSE, False),
+                            "departure_time": user_input.get("departure_time"),
+                            "return_time": user_input.get("return_time"),
+                            "days": user_input.get("days", ["mon", "tue", "wed", "thu", "fri"]),
+                            "exclude_holidays": user_input.get("exclude_holidays", True),
+                            "custom_exclude_dates": user_input.get("custom_exclude_dates"),
+                            CONF_NOTIFY_BEFORE: user_input.get(CONF_NOTIFY_BEFORE, 30),
+                            CONF_NOTIFY_SERVICES: user_input.get(CONF_NOTIFY_SERVICES, []),
+                            CONF_NOTIFY_ON_DELAY: user_input.get(CONF_NOTIFY_ON_DELAY, True),
+                            CONF_NOTIFY_ON_DISRUPTION: user_input.get(CONF_NOTIFY_ON_DISRUPTION, True),
+                            CONF_MIN_DELAY_THRESHOLD: user_input.get(CONF_MIN_DELAY_THRESHOLD, 5),
+                        }
                         
-                        if not origin_results:
-                            _LOGGER.warning(f"Origin station '{origin}' not found")
-                            errors["base"] = "invalid_origin"
-                        elif not dest_results:
-                            _LOGGER.warning(f"Destination station '{destination}' not found")
-                            errors["base"] = "invalid_destination"
+                        # Validate reverse route
+                        if self.search_data["reverse"] and not self.search_data.get("return_time"):
+                            errors["base"] = "return_time_required"
                         else:
-                            _LOGGER.info(f"Stations validated. Origin: {origin_results[0]['name']}, Dest: {dest_results[0]['name']}")
-                    except Exception as err:
-                        _LOGGER.error(f"Error validating stations: {err}", exc_info=True)
-                        errors["base"] = "cannot_connect"
-                    
-                    # If stations are valid, fetch available lines
-                    if not errors:
-                        try:
-                            self.available_lines = await self._get_available_lines(origin, destination)
-                            if self.available_lines:
-                                return await self.async_step_select_lines()
-                            else:
-                                errors["base"] = "no_journeys_found"
-                        except Exception as err:
-                            _LOGGER.error(f"Error fetching available lines: {err}", exc_info=True)
-                            errors["base"] = "cannot_connect"
+                            # Go to station selection step
+                            return await self.async_step_select_stations()
+                        
+                except Exception as err:
+                    _LOGGER.error(f"Error searching stations: {err}", exc_info=True)
+                    errors["base"] = "cannot_connect"
             else:
                 errors["base"] = "invalid_stop"
 
         return self.async_show_form(
             step_id="add_route",
             data_schema=vol.Schema({
-                vol.Required(CONF_ORIGIN): str,
-                vol.Required(CONF_DESTINATION): str,
+                vol.Required("origin_search"): str,
+                vol.Required("destination_search"): str,
                 vol.Optional(CONF_REVERSE, default=False): bool,
                 vol.Optional("departure_time"): selector.TimeSelector(),
                 vol.Optional("return_time"): selector.TimeSelector(),
@@ -175,12 +166,80 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }),
             errors=errors,
             description_placeholders={
-                "origin_help": "Enter station/stop name or code (e.g., 'Amsterdam Centraal' or '8400058')",
-                "destination_help": "Enter destination station/stop name or code",
+                "origin_help": "Enter city or station name (e.g., 'Hoorn', 'Amsterdam')",
+                "destination_help": "Enter destination city or station name",
                 "return_time_help": "Return departure time (required if reverse enabled)",
                 "notify_before_help": "Send notification X minutes before departure",
                 "notify_services_help": "Enter notify service names (e.g., mobile_app_phone)",
                 "min_delay_help": "Minimum delay in minutes to trigger notification",
+            },
+        )
+    
+    async def async_step_select_stations(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle station selection - step 2: choose exact stations."""
+        if user_input is not None:
+            selected_origin = user_input.get("selected_origin")
+            selected_destination = user_input.get("selected_destination")
+            
+            if selected_origin and selected_destination:
+                # Find the selected station details
+                origin_station = next((s for s in self.origin_options if s["id"] == selected_origin), None)
+                dest_station = next((s for s in self.destination_options if s["id"] == selected_destination), None)
+                
+                if origin_station and dest_station:
+                    # Store final route data with selected stations
+                    self.route_data = {
+                        CONF_ORIGIN: origin_station["name"],
+                        CONF_DESTINATION: dest_station["name"],
+                        **self.search_data
+                    }
+                    
+                    # Fetch available lines for these exact stations
+                    try:
+                        self.available_lines = await self._get_available_lines(
+                            origin_station["name"], 
+                            dest_station["name"]
+                        )
+                        if self.available_lines:
+                            return await self.async_step_select_lines()
+                        else:
+                            return self.async_abort(reason="no_journeys_found")
+                    except Exception as err:
+                        _LOGGER.error(f"Error fetching lines: {err}", exc_info=True)
+                        return self.async_abort(reason="cannot_connect")
+        
+        # Build station options for dropdowns
+        origin_station_options = [
+            {"value": station["id"], "label": station["name"]}
+            for station in self.origin_options[:10]  # Limit to top 10
+        ]
+        
+        dest_station_options = [
+            {"value": station["id"], "label": station["name"]}
+            for station in self.destination_options[:10]  # Limit to top 10
+        ]
+        
+        return self.async_show_form(
+            step_id="select_stations",
+            data_schema=vol.Schema({
+                vol.Required("selected_origin"): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=origin_station_options,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Required("selected_destination"): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=dest_station_options,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+            }),
+            description_placeholders={
+                "found_origins": f"Found {len(self.origin_options)} origin stations",
+                "found_destinations": f"Found {len(self.destination_options)} destination stations",
             },
         )
 
@@ -329,6 +388,9 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
         self.route_data: dict[str, Any] = {}
         self.available_lines: list[dict[str, Any]] = []
         self.api: NLPublicTransportAPI | None = None
+        self.origin_options: list[dict[str, Any]] = []
+        self.destination_options: list[dict[str, Any]] = []
+        self.search_data: dict[str, Any] = {}
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
