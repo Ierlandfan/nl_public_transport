@@ -18,7 +18,7 @@ class NLPublicTransportAPI:
         self.session = session
         self._base_url = "https://v6.db.transport.rest"
 
-    async def get_journey(self, origin: str, destination: str) -> dict[str, Any]:
+    async def get_journey(self, origin: str, destination: str, num_departures: int = 5, line_filter: str = "") -> dict[str, Any]:
         """Get journey information between two stops."""
         try:
             # Using the public transport REST API
@@ -26,7 +26,7 @@ class NLPublicTransportAPI:
             params = {
                 "from": origin,
                 "to": destination,
-                "results": 5,  # Get 5 alternatives for rerouting
+                "results": num_departures * 2 if line_filter else num_departures,  # Get more if filtering
                 "stopovers": True,
                 "transfers": -1,  # Include all transfer options
             }
@@ -41,11 +41,29 @@ class NLPublicTransportAPI:
                 if not data.get("journeys"):
                     return self._get_default_data()
                 
-                # Parse all journey alternatives
+                # Filter journeys by line numbers if specified
                 journeys = data["journeys"]
+                if line_filter:
+                    journeys = self._filter_journeys_by_line(journeys, line_filter)
+                    if not journeys:
+                        _LOGGER.warning(f"No journeys found matching line filter: {line_filter}")
+                        return self._get_default_data()
+                
+                # Limit to requested number of departures after filtering
+                journeys = journeys[:num_departures]
+                
+                # Parse all journey alternatives
                 primary_journey = self._parse_journey(journeys[0])
                 
-                # Add alternative routes
+                # Parse all departures for display
+                all_departures = []
+                for journey in journeys:
+                    departure_info = self._parse_departure_info(journey)
+                    all_departures.append(departure_info)
+                
+                primary_journey["upcoming_departures"] = all_departures
+                
+                # Add alternative routes (for rerouting purposes)
                 alternatives = []
                 for journey in journeys[1:5]:  # Get up to 4 alternatives
                     alt = self._parse_journey(journey)
@@ -188,6 +206,66 @@ class NLPublicTransportAPI:
             })
         return parsed_legs
     
+    def _parse_departure_info(self, journey: dict[str, Any]) -> dict[str, Any]:
+        """Parse simplified departure information for upcoming departures list."""
+        legs = journey.get("legs", [])
+        if not legs:
+            return {}
+        
+        first_leg = legs[0]
+        last_leg = legs[-1]
+        
+        # Calculate total delay
+        total_delay = 0
+        for leg in legs:
+            if leg.get("departureDelay"):
+                leg_delay = leg["departureDelay"] / 60
+                total_delay = max(total_delay, leg_delay)
+            if leg.get("arrivalDelay"):
+                arr_delay = leg["arrivalDelay"] / 60
+                total_delay = max(total_delay, arr_delay)
+        
+        # Get vehicle types
+        vehicle_types = []
+        for leg in legs:
+            product = leg.get("line", {}).get("product", "Walk")
+            if product not in vehicle_types:
+                vehicle_types.append(product)
+        
+        return {
+            "departure_time": first_leg.get("departure"),
+            "arrival_time": last_leg.get("arrival"),
+            "delay": total_delay,
+            "platform": first_leg.get("departurePlatform"),
+            "vehicle_types": vehicle_types,
+            "on_time": total_delay <= 0,
+        }
+    
+    def _filter_journeys_by_line(self, journeys: list[dict[str, Any]], line_filter: str) -> list[dict[str, Any]]:
+        """Filter journeys by specific line numbers."""
+        # Parse line filter - support comma-separated values
+        filter_lines = [line.strip().upper() for line in line_filter.split(",")]
+        
+        filtered = []
+        for journey in journeys:
+            legs = journey.get("legs", [])
+            # Check if any leg matches the line filter
+            for leg in legs:
+                line_name = leg.get("line", {}).get("name", "")
+                line_product = leg.get("line", {}).get("product", "")
+                
+                # Match against line name or product
+                for filter_line in filter_lines:
+                    if (filter_line in line_name.upper() or 
+                        filter_line in line_product.upper() or
+                        filter_line == str(leg.get("line", {}).get("fahrtNr", "")).upper()):
+                        filtered.append(journey)
+                        break
+                if journey in filtered:
+                    break
+        
+        return filtered
+    
     def _calculate_connection_time(self, leg1: dict, leg2: dict) -> float:
         """Calculate connection time between two legs in minutes."""
         try:
@@ -242,4 +320,5 @@ class NLPublicTransportAPI:
             "alternatives": [],
             "has_alternatives": False,
             "reroute_recommended": False,
+            "upcoming_departures": [],
         }

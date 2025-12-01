@@ -11,6 +11,8 @@ CONF_NOTIFY_SERVICES = "notify_services"
 CONF_NOTIFY_ON_DELAY = "notify_on_delay"
 CONF_NOTIFY_ON_DISRUPTION = "notify_on_disruption"
 CONF_MIN_DELAY_THRESHOLD = "min_delay_threshold"
+CONF_NUM_DEPARTURES = "num_departures"
+CONF_LINE_FILTER = "line_filter"  # Filter by specific bus/train line numbers
 
 API_9292_URL = "https://v6.db.transport.rest"
 API_NS_URL = "https://gateway.apiportal.ns.nl"
@@ -33,3 +35,4 @@ EVENT_MISSED_CONNECTION = f"{DOMAIN}_missed_connection"
 # Default values
 DEFAULT_NOTIFY_BEFORE = 30  # minutes
 DEFAULT_MIN_DELAY = 5  # minutes
+DEFAULT_NUM_DEPARTURES = 5  # number of upcoming departures to fetch

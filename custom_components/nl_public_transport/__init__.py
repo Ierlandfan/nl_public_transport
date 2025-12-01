@@ -11,7 +11,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
+from .const import DOMAIN, CONF_NUM_DEPARTURES, DEFAULT_NUM_DEPARTURES, CONF_LINE_FILTER
 from .api import NLPublicTransportAPI
 from .schedule import should_show_route
 from .notifications import NotificationManager
@@ -75,6 +75,7 @@ class NLPublicTransportCoordinator(DataUpdateCoordinator):
             routes = self.entry.data.get("routes", [])
             data = {}
             current_time = dt_util.now()
+            num_departures = self.entry.options.get(CONF_NUM_DEPARTURES, DEFAULT_NUM_DEPARTURES)
             
             for route in routes:
                 # Check if route should be active today
@@ -84,9 +85,10 @@ class NLPublicTransportCoordinator(DataUpdateCoordinator):
                 origin = route["origin"]
                 destination = route["destination"]
                 reverse = route.get("reverse", False)
+                line_filter = route.get(CONF_LINE_FILTER, "")
                 
                 # Fetch journey data
-                journey_data = await self.api.get_journey(origin, destination)
+                journey_data = await self.api.get_journey(origin, destination, num_departures, line_filter)
                 data[f"{origin}_{destination}"] = journey_data
                 
                 # Check for notifications
@@ -101,7 +103,7 @@ class NLPublicTransportCoordinator(DataUpdateCoordinator):
                     
                     # Check if reverse route should be active (based on return_time)
                     if should_show_route(reverse_route_config, current_time):
-                        reverse_data = await self.api.get_journey(destination, origin)
+                        reverse_data = await self.api.get_journey(destination, origin, num_departures, line_filter)
                         data[f"{destination}_{origin}"] = reverse_data
                         
                         # Check reverse route for notifications

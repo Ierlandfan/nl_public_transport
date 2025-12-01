@@ -13,13 +13,15 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import selector
 import homeassistant.helpers.config_validation as cv
 
-from .const import DOMAIN, CONF_ROUTES, CONF_ORIGIN, CONF_DESTINATION, CONF_REVERSE
+from .const import DOMAIN, CONF_ROUTES, CONF_ORIGIN, CONF_DESTINATION, CONF_REVERSE, CONF_LINE_FILTER
 from .const import (
     CONF_NOTIFY_BEFORE,
     CONF_NOTIFY_SERVICES,
     CONF_NOTIFY_ON_DELAY,
     CONF_NOTIFY_ON_DISRUPTION,
     CONF_MIN_DELAY_THRESHOLD,
+    CONF_NUM_DEPARTURES,
+    DEFAULT_NUM_DEPARTURES,
 )
 from .api import NLPublicTransportAPI
 
@@ -82,6 +84,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     "days": user_input.get("days", ["mon", "tue", "wed", "thu", "fri"]),
                     "exclude_holidays": user_input.get("exclude_holidays", True),
                     "custom_exclude_dates": user_input.get("custom_exclude_dates"),
+                    CONF_LINE_FILTER: user_input.get(CONF_LINE_FILTER, ""),
                     CONF_NOTIFY_BEFORE: user_input.get(CONF_NOTIFY_BEFORE, 30),
                     CONF_NOTIFY_SERVICES: user_input.get(CONF_NOTIFY_SERVICES, []),
                     CONF_NOTIFY_ON_DELAY: user_input.get(CONF_NOTIFY_ON_DELAY, True),
@@ -123,6 +126,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
                 vol.Optional("exclude_holidays", default=True): bool,
                 vol.Optional("custom_exclude_dates"): str,
+                vol.Optional(CONF_LINE_FILTER, default=""): str,
                 vol.Optional(CONF_NOTIFY_BEFORE, default=30): vol.All(
                     vol.Coerce(int), vol.Range(min=5, max=120)
                 ),
@@ -145,6 +149,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "origin_help": "Enter station/stop name or code (e.g., 'Amsterdam Centraal' or '8400058')",
                 "destination_help": "Enter destination station/stop name or code",
                 "return_time_help": "Return departure time (required if reverse enabled)",
+                "line_filter_help": "Filter by line numbers (comma-separated, e.g., '800,900' or 'IC 3500')",
                 "notify_before_help": "Send notification X minutes before departure",
                 "notify_services_help": "Enter notify service names (e.g., mobile_app_phone)",
                 "min_delay_help": "Minimum delay in minutes to trigger notification",
@@ -213,6 +218,7 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
                     "days": user_input.get("days", ["mon", "tue", "wed", "thu", "fri"]),
                     "exclude_holidays": user_input.get("exclude_holidays", True),
                     "custom_exclude_dates": user_input.get("custom_exclude_dates"),
+                    CONF_LINE_FILTER: user_input.get(CONF_LINE_FILTER, ""),
                     CONF_NOTIFY_BEFORE: user_input.get(CONF_NOTIFY_BEFORE, 30),
                     CONF_NOTIFY_SERVICES: user_input.get(CONF_NOTIFY_SERVICES, []),
                     CONF_NOTIFY_ON_DELAY: user_input.get(CONF_NOTIFY_ON_DELAY, True),
@@ -254,6 +260,7 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
                 ),
                 vol.Optional("exclude_holidays", default=True): bool,
                 vol.Optional("custom_exclude_dates"): str,
+                vol.Optional(CONF_LINE_FILTER, default=""): str,
                 vol.Optional(CONF_NOTIFY_BEFORE, default=30): vol.All(
                     vol.Coerce(int), vol.Range(min=5, max=120)
                 ),
@@ -273,6 +280,7 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
             }),
             errors=errors,
             description_placeholders={
+                "line_filter_help": "Filter by line numbers (comma-separated, e.g., '800,900' or 'IC 3500')",
                 "notify_before_help": "Send notification X minutes before departure",
                 "notify_services_help": "Enter notify service names (e.g., mobile_app_phone)",
                 "min_delay_help": "Minimum delay in minutes to trigger notification",

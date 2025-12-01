@@ -28,6 +28,11 @@ A comprehensive Home Assistant integration for Dutch public transportation (9292
 - Perfect for commuters (morning: home→work, evening: work→home)
 - Automatically creates both directions
 
+🚌 **Line/Route Filtering**
+- Filter by specific bus, tram, or train line numbers
+- Support for multiple lines (comma-separated)
+- Useful for busy stations with many routes
+
 📊 **Rich Sensor Data**
 - Status: "On Time" or "Delayed X min"
 - Departure and arrival times
@@ -63,6 +68,7 @@ A comprehensive Home Assistant integration for Dutch public transportation (9292
 4. Click **"Add Route"** to add your first route
    - Enter origin (e.g., "Amsterdam Centraal" or station code)
    - Enter destination (e.g., "Utrecht Centraal")
+   - (Optional) Enter **line filter** to show only specific lines/routes (e.g., "800,900" for buses 800 and 900, or "IC 3500" for Intercity 3500)
    - Check **"Enable reverse route"** if you want both directions
 5. Add more routes or click **"Finish Setup"**
 
@@ -75,6 +81,23 @@ You can add or remove routes at any time:
 3. Click **"Configure"**
 4. Choose to add or remove routes
 
+### Filtering by Line/Route Numbers
+
+You can filter journeys to show only specific bus, tram, or train lines:
+
+**Examples:**
+- **Single line**: Enter `800` to show only bus line 800
+- **Multiple lines**: Enter `800,900,N88` to show buses 800, 900, and night bus N88
+- **Train lines**: Enter `IC 3500` or `Sprinter 6900` to filter specific train services
+- **Mixed**: Combine different types, e.g., `800,IC 3500`
+
+**Use cases:**
+- **Busy stations**: Filter out unwanted connections at major hubs
+- **Preferred lines**: Only show direct trains instead of slower connections
+- **Specific routes**: Track only your regular bus line
+
+The filter is case-insensitive and matches against the line name. If no matching journeys are found, the sensor will show as unavailable.
+
 ## Usage
 
 ### Sensors
@@ -83,13 +106,37 @@ Each route creates a sensor with the following information:
 
 - **State**: "On Time" or "Delayed X min"
 - **Attributes**:
-  - `departure_time`: Scheduled departure
-  - `arrival_time`: Scheduled arrival
+  - `departure_time`: Scheduled departure (next departure)
+  - `arrival_time`: Scheduled arrival (next departure)
   - `delay`: Delay in minutes
   - `delay_reason`: Reason for delay (if available)
   - `platform`: Departure platform
   - `vehicle_type`: Type of transport (train, bus, tram, metro)
   - `route_coordinates`: GPS coordinates for mapping
+  - `next_departures`: List of upcoming departures (default: 5)
+  - `next_departures_count`: Number of upcoming departures available
+  - `line_filter`: Active line filter (if configured)
+
+#### Upcoming Departures
+
+Each sensor includes a `next_departures` attribute with a list of upcoming departure times:
+
+```yaml
+next_departures:
+  - departure: "2024-01-15T08:30:00"
+    arrival: "2024-01-15T09:15:00"
+    delay: 0
+    platform: "7b"
+    on_time: true
+    vehicle_types: ["train"]
+  - departure: "2024-01-15T09:00:00"
+    arrival: "2024-01-15T09:45:00"
+    delay: 2
+    platform: "7a"
+    on_time: false
+    vehicle_types: ["train"]
+  # ... (up to 5 departures by default)
+```
 
 ### Map Card
 
@@ -126,6 +173,26 @@ cards:
       - delay
       - platform
       - vehicle_type
+```
+
+### Upcoming Departures Card
+
+Display the next several departures using a custom template card:
+
+```yaml
+type: markdown
+content: |
+  ## Next Trains: Amsterdam → Utrecht
+  {% set departures = state_attr('sensor.transit_amsterdam_centraal_to_utrecht_centraal', 'next_departures') %}
+  {% if departures %}
+  | Departure | Arrival | Platform | Status |
+  |-----------|---------|----------|--------|
+  {% for dep in departures %}
+  | {{ dep.departure[11:16] }} | {{ dep.arrival[11:16] }} | {{ dep.platform or 'TBA' }} | {% if dep.on_time %}✅ On time{% else %}⚠️ +{{ dep.delay }}min{% endif %} |
+  {% endfor %}
+  {% else %}
+  No departures available
+  {% endif %}
 ```
 
 ## Station Codes

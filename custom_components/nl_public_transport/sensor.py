@@ -38,11 +38,12 @@ async def async_setup_entry(
         origin = route["origin"]
         destination = route["destination"]
         reverse = route.get("reverse", False)
+        line_filter = route.get("line_filter", "")
         
-        sensors.append(NLPublicTransportSensor(coordinator, origin, destination))
+        sensors.append(NLPublicTransportSensor(coordinator, origin, destination, line_filter))
         
         if reverse:
-            sensors.append(NLPublicTransportSensor(coordinator, destination, origin))
+            sensors.append(NLPublicTransportSensor(coordinator, destination, origin, line_filter))
     
     async_add_entities(sensors)
 
@@ -55,11 +56,13 @@ class NLPublicTransportSensor(CoordinatorEntity, SensorEntity):
         coordinator: NLPublicTransportCoordinator,
         origin: str,
         destination: str,
+        line_filter: str = "",
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._origin = origin
         self._destination = destination
+        self._line_filter = line_filter
         self._attr_unique_id = f"{DOMAIN}_{origin}_{destination}"
         self._attr_name = f"Transit {origin} to {destination}"
         self._attr_device_class = SensorDeviceClass.ENUM
@@ -97,11 +100,28 @@ class NLPublicTransportSensor(CoordinatorEntity, SensorEntity):
             ATTR_ROUTE_COORDINATES: data.get("coordinates", []),
             "origin": self._origin,
             "destination": self._destination,
+            "line_filter": self._line_filter,
             "missed_connection": data.get("missed_connection", False),
             "reroute_recommended": data.get("reroute_recommended", False),
             "journey_description": data.get("journey_description", []),
             "has_alternatives": data.get("has_alternatives", False),
         }
+        
+        # Add upcoming departures
+        upcoming = data.get("upcoming_departures", [])
+        if upcoming:
+            attrs["next_departures_count"] = len(upcoming)
+            attrs["next_departures"] = [
+                {
+                    "departure": dep.get("departure_time"),
+                    "arrival": dep.get("arrival_time"),
+                    "delay": dep.get("delay", 0),
+                    "platform": dep.get("platform"),
+                    "on_time": dep.get("on_time", True),
+                    "vehicle_types": dep.get("vehicle_types", []),
+                }
+                for dep in upcoming
+            ]
         
         # Add alternative routes if available
         alternatives = data.get("alternatives", [])
