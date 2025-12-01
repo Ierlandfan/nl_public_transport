@@ -94,6 +94,11 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if self.route_data[CONF_REVERSE] and not self.route_data.get("return_time"):
                     errors["base"] = "return_time_required"
                 else:
+                    # Ensure API is initialized
+                    if self.api is None:
+                        session = async_get_clientsession(self.hass)
+                        self.api = NLPublicTransportAPI(session)
+                    
                     # Fetch available lines
                     try:
                         self.available_lines = await self._get_available_lines(origin, destination)
@@ -102,7 +107,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         else:
                             errors["base"] = "no_journeys_found"
                     except Exception as err:
-                        _LOGGER.error(f"Error fetching available lines: {err}")
+                        _LOGGER.error(f"Error fetching available lines: {err}", exc_info=True)
                         errors["base"] = "cannot_connect"
             else:
                 errors["base"] = "invalid_stop"
@@ -211,15 +216,26 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def _get_available_lines(self, origin: str, destination: str) -> list[dict[str, Any]]:
         """Get available lines for the route."""
         try:
+            if not self.api:
+                _LOGGER.error("API not initialized in _get_available_lines")
+                return []
+            
             # Fetch journey data
+            _LOGGER.debug(f"Fetching journeys from {origin} to {destination}")
             journey_data = await self.api.get_journey(origin, destination, num_departures=10, line_filter="")
             
-            if not journey_data or not journey_data.get("upcoming_departures"):
+            if not journey_data:
+                _LOGGER.warning("No journey data returned from API")
+                return []
+            
+            if not journey_data.get("upcoming_departures"):
+                _LOGGER.warning("No upcoming departures in journey data")
                 return []
             
             # Extract unique lines from departures
             lines_dict = {}
             for departure in journey_data.get("upcoming_departures", []):
+                line_names = departure.get("line_names", [])
                 vehicle_types = departure.get("vehicle_types", [])
                 dep_time = departure.get("departure_time", "")
                 
@@ -230,17 +246,19 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         from datetime import datetime
                         dt = datetime.fromisoformat(dep_time.replace("Z", "+00:00"))
                         time_str = dt.strftime("%H:%M")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        _LOGGER.debug(f"Could not parse time {dep_time}: {e}")
                 
-                # For each vehicle type in this departure
-                for vtype in vehicle_types:
-                    if vtype and vtype not in lines_dict:
-                        lines_dict[vtype] = {
-                            "name": vtype,
-                            "product": vtype.split()[0] if " " in vtype else vtype,
+                # For each line name in this departure
+                for idx, line_name in enumerate(line_names):
+                    if line_name and line_name not in lines_dict:
+                        product = vehicle_types[idx] if idx < len(vehicle_types) else "unknown"
+                        lines_dict[line_name] = {
+                            "name": line_name,
+                            "product": product,
                             "departure_time": time_str,
                         }
+                        _LOGGER.debug(f"Found line: {product} {line_name} at {time_str}")
             
             # Also check journey legs for more detailed line info
             legs = journey_data.get("legs", [])
@@ -251,13 +269,16 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if line_name and line_name not in lines_dict:
                     lines_dict[line_name] = {
                         "name": line_name,
-                        "product": product or line_name.split()[0],
+                        "product": product or "unknown",
                         "departure_time": "",
                     }
+                    _LOGGER.debug(f"Found line from legs: {product} {line_name}")
             
-            return list(lines_dict.values())
+            result = list(lines_dict.values())
+            _LOGGER.info(f"Found {len(result)} unique lines for {origin} → {destination}")
+            return result
         except Exception as err:
-            _LOGGER.error(f"Error getting available lines: {err}")
+            _LOGGER.error(f"Error getting available lines: {err}", exc_info=True)
             return []
 
     async def async_step_finish(
@@ -337,6 +358,11 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
                 if self.route_data[CONF_REVERSE] and not self.route_data.get("return_time"):
                     errors["base"] = "return_time_required"
                 else:
+                    # Ensure API is initialized
+                    if self.api is None:
+                        session = async_get_clientsession(self.hass)
+                        self.api = NLPublicTransportAPI(session)
+                    
                     # Fetch available lines
                     try:
                         self.available_lines = await self._get_available_lines(origin, destination)
@@ -345,7 +371,7 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
                         else:
                             errors["base"] = "no_journeys_found"
                     except Exception as err:
-                        _LOGGER.error(f"Error fetching available lines: {err}")
+                        _LOGGER.error(f"Error fetching available lines in options: {err}", exc_info=True)
                         errors["base"] = "cannot_connect"
             else:
                 errors["base"] = "invalid_stop"
@@ -450,10 +476,20 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
     async def _get_available_lines(self, origin: str, destination: str) -> list[dict[str, Any]]:
         """Get available lines for the route."""
         try:
+            if not self.api:
+                _LOGGER.error("API not initialized in options _get_available_lines")
+                return []
+            
             # Fetch journey data
+            _LOGGER.debug(f"Options: Fetching journeys from {origin} to {destination}")
             journey_data = await self.api.get_journey(origin, destination, num_departures=10, line_filter="")
             
-            if not journey_data or not journey_data.get("upcoming_departures"):
+            if not journey_data:
+                _LOGGER.warning("Options: No journey data returned from API")
+                return []
+            
+            if not journey_data.get("upcoming_departures"):
+                _LOGGER.warning("Options: No upcoming departures in journey data")
                 return []
             
             # Extract unique lines from departures
@@ -470,18 +506,19 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
                         from datetime import datetime
                         dt = datetime.fromisoformat(dep_time.replace("Z", "+00:00"))
                         time_str = dt.strftime("%H:%M")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        _LOGGER.debug(f"Could not parse time {dep_time}: {e}")
                 
-                # For each line in this departure
+                # For each line name in this departure
                 for idx, line_name in enumerate(line_names):
                     if line_name and line_name not in lines_dict:
-                        product = vehicle_types[idx] if idx < len(vehicle_types) else line_name.split()[0]
+                        product = vehicle_types[idx] if idx < len(vehicle_types) else "unknown"
                         lines_dict[line_name] = {
                             "name": line_name,
                             "product": product,
                             "departure_time": time_str,
                         }
+                        _LOGGER.debug(f"Options: Found line: {product} {line_name} at {time_str}")
             
             # Also check journey legs for more detailed line info
             legs = journey_data.get("legs", [])
@@ -492,13 +529,16 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
                 if line_name and line_name not in lines_dict:
                     lines_dict[line_name] = {
                         "name": line_name,
-                        "product": product or line_name.split()[0],
+                        "product": product or "unknown",
                         "departure_time": "",
                     }
+                    _LOGGER.debug(f"Options: Found line from legs: {product} {line_name}")
             
-            return list(lines_dict.values())
+            result = list(lines_dict.values())
+            _LOGGER.info(f"Options: Found {len(result)} unique lines for {origin} → {destination}")
+            return result
         except Exception as err:
-            _LOGGER.error(f"Error getting available lines: {err}")
+            _LOGGER.error(f"Options: Error getting available lines: {err}", exc_info=True)
             return []
 
     async def async_step_remove_route(
