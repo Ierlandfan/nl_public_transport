@@ -28,6 +28,13 @@
           "min_delay_threshold": "Minimum Delay to Notify (minutes)"
         }
       },
+      "select_lines": {
+        "title": "Select Lines to Track",
+        "description": "Choose which lines/routes to monitor. Leave empty to track all available lines.",
+        "data": {
+          "selected_lines": "Lines to track"
+        }
+      },
       "finish": {
         "title": "Setup Complete"
       }
@@ -35,7 +42,9 @@
     "error": {
       "invalid_stop": "Invalid station or stop code",
       "no_routes": "Please add at least one route",
-      "return_time_required": "Return time is required when reverse route is enabled"
+      "return_time_required": "Return time is required when reverse route is enabled",
+      "cannot_connect": "Cannot connect to transport API",
+      "no_journeys_found": "No journeys found for this route"
     },
     "abort": {
       "already_configured": "Integration is already configured",
@@ -58,12 +67,23 @@
           "origin": "Origin Station/Stop",
           "destination": "Destination Station/Stop",
           "reverse": "Enable reverse route",
+          "departure_time": "Departure Time (optional)",
           "return_time": "Return Departure Time (required if reverse enabled)",
+          "days": "Active Days",
+          "exclude_holidays": "Skip on Public Holidays",
+          "custom_exclude_dates": "Custom Exclude Dates (YYYY-MM-DD, comma-separated)",
           "notify_before": "Notify X minutes before departure",
           "notify_services": "Notification Services",
           "notify_on_delay": "Notify on Delays",
           "notify_on_disruption": "Notify on Disruptions",
           "min_delay_threshold": "Minimum Delay to Notify (minutes)"
+        }
+      },
+      "select_lines": {
+        "title": "Select Lines to Track",
+        "description": "Choose which lines/routes to monitor. Leave empty to track all available lines.",
+        "data": {
+          "selected_lines": "Lines to track"
         }
       },
       "remove_route": {
@@ -72,6 +92,12 @@
           "route": "Select route to remove"
         }
       }
+    },
+    "error": {
+      "invalid_stop": "Invalid station or stop code",
+      "return_time_required": "Return time is required when reverse route is enabled",
+      "cannot_connect": "Cannot connect to transport API",
+      "no_journeys_found": "No journeys found for this route"
     }
   }
 }

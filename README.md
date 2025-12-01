@@ -28,10 +28,12 @@ A comprehensive Home Assistant integration for Dutch public transportation (9292
 - Perfect for commuters (morning: home→work, evening: work→home)
 - Automatically creates both directions
 
-🚌 **Line/Route Filtering**
-- Filter by specific bus, tram, or train line numbers
-- Support for multiple lines (comma-separated)
-- Useful for busy stations with many routes
+🚌 **Smart Line Selection**
+- System queries available lines for your route
+- See actual departure times for each line
+- Select which specific lines to track
+- Filter out unwanted connections automatically
+- Perfect for busy stations with many routes
 
 📊 **Rich Sensor Data**
 - Status: "On Time" or "Delayed X min"
@@ -66,11 +68,17 @@ A comprehensive Home Assistant integration for Dutch public transportation (9292
 2. Click **"+ Add Integration"**
 3. Search for **"Dutch Public Transport"**
 4. Click **"Add Route"** to add your first route
-   - Enter origin (e.g., "Amsterdam Centraal" or station code)
-   - Enter destination (e.g., "Utrecht Centraal")
-   - (Optional) Enter **line filter** to show only specific lines/routes (e.g., "800,900" for buses 800 and 900, or "IC 3500" for Intercity 3500)
+5. **Step 1: Enter route details**
+   - Enter origin (e.g., "Veenendaal Centrum" or station code)
+   - Enter destination (e.g., "Ede-Wageningen")
+   - (Optional) Set departure time to see routes around that time
    - Check **"Enable reverse route"** if you want both directions
-5. Add more routes or click **"Finish Setup"**
+   - Configure notification preferences
+6. **Step 2: Select which lines to track**
+   - The system will query available buses/trains for your route
+   - You'll see a list like: "Bus 50 (departs 08:15)", "Bus 82 (departs 08:22)"
+   - Select specific lines you want to track, or leave empty for all
+7. Add more routes or click **"Finish Setup"**
 
 ### Managing Routes
 
@@ -83,20 +91,30 @@ You can add or remove routes at any time:
 
 ### Filtering by Line/Route Numbers
 
-You can filter journeys to show only specific bus, tram, or train lines:
+During configuration, the integration automatically detects available lines for your route and lets you select which ones to track:
 
-**Examples:**
-- **Single line**: Enter `800` to show only bus line 800
-- **Multiple lines**: Enter `800,900,N88` to show buses 800, 900, and night bus N88
-- **Train lines**: Enter `IC 3500` or `Sprinter 6900` to filter specific train services
-- **Mixed**: Combine different types, e.g., `800,IC 3500`
+**How it works:**
+1. Enter your origin and destination (e.g., Veenendaal → Ede)
+2. Optionally set a departure time to see routes around that time
+3. The system queries the API and shows you all available lines:
+   - `Bus 50 (departs 08:15)`
+   - `Bus 82 (departs 08:22)`
+   - `Train IC 800 (departs 08:30)`
+4. Select which lines you want to monitor
+5. Leave empty to track all available routes
 
-**Use cases:**
-- **Busy stations**: Filter out unwanted connections at major hubs
-- **Preferred lines**: Only show direct trains instead of slower connections
-- **Specific routes**: Track only your regular bus line
+**Benefits:**
+- **See actual options**: No guessing line numbers
+- **Time-aware**: See departure times to pick relevant lines
+- **Flexible**: Select one, multiple, or all lines
+- **Smart filtering**: System automatically filters your selections
 
-The filter is case-insensitive and matches against the line name. If no matching journeys are found, the sensor will show as unavailable.
+**Example Use Cases:**
+- **Veenendaal → Ede**: Select only Bus 50 if that's your regular bus
+- **Busy stations**: Filter out slow connections, keep only direct trains
+- **Multiple options**: Track both Bus 82 and Bus 50 as backup options
+
+The filter is applied to both forward and reverse routes automatically.
 
 ## Usage
 

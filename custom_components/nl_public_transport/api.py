@@ -194,13 +194,15 @@ class NLPublicTransportAPI:
         """Parse individual journey legs."""
         parsed_legs = []
         for leg in legs:
+            line_info = leg.get("line", {})
             parsed_legs.append({
                 "origin": leg.get("origin", {}).get("name"),
                 "destination": leg.get("destination", {}).get("name"),
                 "departure": leg.get("departure"),
                 "arrival": leg.get("arrival"),
-                "product": leg.get("line", {}).get("product", "Walk"),
-                "line": leg.get("line", {}).get("name"),
+                "product": line_info.get("product", "Walk"),
+                "line": line_info.get("name", ""),
+                "line_id": line_info.get("id", ""),
                 "platform": leg.get("departurePlatform"),
                 "delay": (leg.get("departureDelay") or 0) / 60,
             })
@@ -225,12 +227,19 @@ class NLPublicTransportAPI:
                 arr_delay = leg["arrivalDelay"] / 60
                 total_delay = max(total_delay, arr_delay)
         
-        # Get vehicle types
+        # Get vehicle types and line names
         vehicle_types = []
+        line_names = []
         for leg in legs:
-            product = leg.get("line", {}).get("product", "Walk")
-            if product not in vehicle_types:
+            line_info = leg.get("line", {})
+            product = line_info.get("product", "")
+            line_name = line_info.get("name", "")
+            
+            if product and product not in vehicle_types and product != "walking":
                 vehicle_types.append(product)
+            
+            if line_name and line_name not in line_names:
+                line_names.append(line_name)
         
         return {
             "departure_time": first_leg.get("departure"),
@@ -238,6 +247,7 @@ class NLPublicTransportAPI:
             "delay": total_delay,
             "platform": first_leg.get("departurePlatform"),
             "vehicle_types": vehicle_types,
+            "line_names": line_names,
             "on_time": total_delay <= 0,
         }
     
