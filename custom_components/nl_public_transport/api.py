@@ -103,20 +103,21 @@ class NLPublicTransportAPI:
                 
                 data = await response.json()
                 
-                # Filter for stations and stops only
+                # Include all location types - stations, stops, and addresses
+                # Don't filter by type to catch all possibilities
                 locations = [
                     {
                         "id": loc.get("id"),
                         "name": loc.get("name"),
                         "latitude": loc.get("latitude"),
                         "longitude": loc.get("longitude"),
-                        "type": loc.get("type"),
+                        "type": loc.get("type", "unknown"),
                     }
                     for loc in data
-                    if loc.get("type") in ["station", "stop"]
+                    if loc.get("name")  # Just ensure it has a name
                 ]
                 
-                _LOGGER.debug(f"Found {len(locations)} locations for query '{query}'")
+                _LOGGER.debug(f"Found {len(locations)} locations for query '{query}'. Types: {set(l['type'] for l in locations)}")
                 return locations
                 
         except Exception as err:
