@@ -91,7 +91,7 @@ class NLPublicTransportAPI:
         """Search for locations/stops."""
         try:
             url = f"{self._base_url}/locations"
-            params = {"query": query, "results": 10}
+            params = {"query": query, "results": 50}  # Increased from 10 to 50
             
             _LOGGER.debug(f"Searching location: {url}?query={query}")
             

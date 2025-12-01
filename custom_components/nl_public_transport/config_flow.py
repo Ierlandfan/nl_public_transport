@@ -166,8 +166,8 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }),
             errors=errors,
             description_placeholders={
-                "origin_help": "Enter city or station name (e.g., 'Hoorn', 'Amsterdam')",
-                "destination_help": "Enter destination city or station name",
+                "origin_help": "Enter city or station name (e.g., 'Hoorn', 'Amsterdam Sloterdijk')",
+                "destination_help": "Enter destination city or station name. Be specific for better results.",
                 "return_time_help": "Return departure time (required if reverse enabled)",
                 "notify_before_help": "Send notification X minutes before departure",
                 "notify_services_help": "Enter notify service names (e.g., mobile_app_phone)",
@@ -213,12 +213,12 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Build station options for dropdowns
         origin_station_options = [
             {"value": station["id"], "label": station["name"]}
-            for station in self.origin_options[:10]  # Limit to top 10
+            for station in self.origin_options[:30]  # Show up to 30 results
         ]
         
         dest_station_options = [
             {"value": station["id"], "label": station["name"]}
-            for station in self.destination_options[:10]  # Limit to top 10
+            for station in self.destination_options[:30]  # Show up to 30 results
         ]
         
         return self.async_show_form(
@@ -238,8 +238,8 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
             }),
             description_placeholders={
-                "found_origins": f"Found {len(self.origin_options)} origin stations",
-                "found_destinations": f"Found {len(self.destination_options)} destination stations",
+                "found_origins": f"Found {len(self.origin_options)} origin stations. Select the exact one you want.",
+                "found_destinations": f"Found {len(self.destination_options)} destination stations. Select the exact one you want.",
             },
         )
 
