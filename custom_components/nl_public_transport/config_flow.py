@@ -99,16 +99,35 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         session = async_get_clientsession(self.hass)
                         self.api = NLPublicTransportAPI(session)
                     
-                    # Fetch available lines
+                    # Validate station names first
                     try:
-                        self.available_lines = await self._get_available_lines(origin, destination)
-                        if self.available_lines:
-                            return await self.async_step_select_lines()
+                        _LOGGER.info(f"Validating stations: {origin} and {destination}")
+                        origin_results = await self.api.search_location(origin)
+                        dest_results = await self.api.search_location(destination)
+                        
+                        if not origin_results:
+                            _LOGGER.warning(f"Origin station '{origin}' not found")
+                            errors["base"] = "invalid_origin"
+                        elif not dest_results:
+                            _LOGGER.warning(f"Destination station '{destination}' not found")
+                            errors["base"] = "invalid_destination"
                         else:
-                            errors["base"] = "no_journeys_found"
+                            _LOGGER.info(f"Stations validated. Origin: {origin_results[0]['name']}, Dest: {dest_results[0]['name']}")
                     except Exception as err:
-                        _LOGGER.error(f"Error fetching available lines: {err}", exc_info=True)
+                        _LOGGER.error(f"Error validating stations: {err}", exc_info=True)
                         errors["base"] = "cannot_connect"
+                    
+                    # If stations are valid, fetch available lines
+                    if not errors:
+                        try:
+                            self.available_lines = await self._get_available_lines(origin, destination)
+                            if self.available_lines:
+                                return await self.async_step_select_lines()
+                            else:
+                                errors["base"] = "no_journeys_found"
+                        except Exception as err:
+                            _LOGGER.error(f"Error fetching available lines: {err}", exc_info=True)
+                            errors["base"] = "cannot_connect"
             else:
                 errors["base"] = "invalid_stop"
 

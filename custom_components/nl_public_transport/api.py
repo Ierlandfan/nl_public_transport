@@ -31,14 +31,18 @@ class NLPublicTransportAPI:
                 "transfers": -1,  # Include all transfer options
             }
             
+            _LOGGER.debug(f"Requesting journeys: {url} with params: {params}")
+            
             async with self.session.get(url, params=params, timeout=15) as response:
                 if response.status != 200:
-                    _LOGGER.error(f"API returned status {response.status}")
+                    error_text = await response.text()
+                    _LOGGER.error(f"API returned status {response.status}: {error_text}")
                     return self._get_default_data()
                 
                 data = await response.json()
                 
                 if not data.get("journeys"):
+                    _LOGGER.warning(f"No journeys found in API response for {origin} -> {destination}")
                     return self._get_default_data()
                 
                 # Filter journeys by line numbers if specified
@@ -89,24 +93,34 @@ class NLPublicTransportAPI:
             url = f"{self._base_url}/locations"
             params = {"query": query, "results": 10}
             
+            _LOGGER.debug(f"Searching location: {url}?query={query}")
+            
             async with self.session.get(url, params=params, timeout=10) as response:
                 if response.status != 200:
+                    error_text = await response.text()
+                    _LOGGER.error(f"Location search API returned status {response.status}: {error_text}")
                     return []
                 
                 data = await response.json()
-                return [
+                
+                # Filter for stations and stops only
+                locations = [
                     {
                         "id": loc.get("id"),
                         "name": loc.get("name"),
                         "latitude": loc.get("latitude"),
                         "longitude": loc.get("longitude"),
+                        "type": loc.get("type"),
                     }
                     for loc in data
-                    if loc.get("type") == "station" or loc.get("type") == "stop"
+                    if loc.get("type") in ["station", "stop"]
                 ]
                 
+                _LOGGER.debug(f"Found {len(locations)} locations for query '{query}'")
+                return locations
+                
         except Exception as err:
-            _LOGGER.error(f"Error searching location: {err}")
+            _LOGGER.error(f"Error searching location: {err}", exc_info=True)
             return []
 
     def _parse_journey(self, journey: dict[str, Any]) -> dict[str, Any]:

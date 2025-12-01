@@ -41,6 +41,8 @@
     },
     "error": {
       "invalid_stop": "Invalid station or stop code",
+      "invalid_origin": "Origin station not found. Please check the name or code.",
+      "invalid_destination": "Destination station not found. Please check the name or code.",
       "no_routes": "Please add at least one route",
       "return_time_required": "Return time is required when reverse route is enabled",
       "cannot_connect": "Cannot connect to transport API",
@@ -95,6 +97,8 @@
     },
     "error": {
       "invalid_stop": "Invalid station or stop code",
+      "invalid_origin": "Origin station not found. Please check the name or code.",
+      "invalid_destination": "Destination station not found. Please check the name or code.",
       "return_time_required": "Return time is required when reverse route is enabled",
       "cannot_connect": "Cannot connect to transport API",
       "no_journeys_found": "No journeys found for this route"
