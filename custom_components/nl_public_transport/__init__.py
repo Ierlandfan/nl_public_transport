@@ -126,28 +126,6 @@ class NLPublicTransportCoordinator(DataUpdateCoordinator):
             
         except Exception as err:
             raise UpdateFailed(f"Error fetching data: {err}")
-                # Check if route should be active today
-                if not should_show_route(route, current_time):
-                    continue
-                
-                origin = route["origin"]
-                destination = route["destination"]
-                reverse = route.get("reverse", False)
-                line_filter = route.get(CONF_LINE_FILTER, "")
-                
-                # Fetch journey data
-                journey_data = await self.api.get_journey(origin, destination, num_departures, line_filter)
-                data[f"{origin}_{destination}"] = journey_data
-                
-                # Check for notifications
-                await self.notification_manager.check_and_notify(route, journey_data)
-                
-                # If reverse is enabled, also fetch reverse journey
-                if reverse:
-                    # Create reverse route config with return_time as departure_time
-                    reverse_route_config = {**route, "origin": destination, "destination": origin}
-                    if route.get("return_time"):
-                        reverse_route_config["departure_time"] = route.get("return_time")
                     
                     # Check if reverse route should be active (based on return_time)
                     if should_show_route(reverse_route_config, current_time):
