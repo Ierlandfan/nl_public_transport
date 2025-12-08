@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 import aiohttp
 
 from .gtfs import GTFSStopCache
+from .gtfs_schedule import GTFSSchedule
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -15,12 +16,13 @@ OVAPI_BASE_URL = "http://v0.ovapi.nl"
 
 
 class NLPublicTransportAPI:
-    """API client for Dutch public transport services using OVAPI."""
+    """API client for Dutch public transport services using OVAPI + GTFS."""
 
     def __init__(self, session: aiohttp.ClientSession) -> None:
         """Initialize the API client."""
         self.session = session
         self._gtfs_cache = GTFSStopCache()
+        self._gtfs_schedule = GTFSSchedule()
         self._gtfs_loaded = False
 
     async def get_journey(self, origin: str, destination: str, num_departures: int = 5, line_filter: str = "") -> dict[str, Any]:
@@ -213,4 +215,37 @@ class NLPublicTransportAPI:
             "missed_connection": False,
             "reroute_recommended": False,
             "journey_description": [],
+        }
+
+    async def get_full_schedule(
+        self, 
+        origin: str, 
+        destination: str = "",
+        target_date: date | None = None,
+        start_time: str = "00:00:00",
+        end_time: str = "23:59:59",
+        line_filter: str = "",
+        limit: int = 50
+    ) -> dict[str, Any]:
+        """Get full schedule from GTFS for future planning."""
+        # Load GTFS schedule if not loaded
+        if not self._gtfs_schedule._loaded:
+            await self._gtfs_schedule.load()
+        
+        # Get scheduled departures
+        schedule = await self._gtfs_schedule.get_schedule(
+            stop_id=origin,
+            target_date=target_date,
+            start_time=start_time,
+            end_time=end_time,
+            line_filter=line_filter,
+            limit=limit
+        )
+        
+        return {
+            "origin": origin,
+            "destination": destination,
+            "schedule_date": target_date.isoformat() if target_date else date.today().isoformat(),
+            "scheduled_departures": schedule,
+            "total_count": len(schedule),
         }
