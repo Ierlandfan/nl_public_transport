@@ -119,6 +119,17 @@ class NLPublicTransportAPI:
             # Calculate delay
             delay = self._calculate_ovapi_delay(pass_data)
             
+            # Get vehicle position if available
+            vehicle_lat = pass_data.get("Latitude")
+            vehicle_lon = pass_data.get("Longitude")
+            vehicle_position = None
+            if vehicle_lat and vehicle_lon:
+                vehicle_position = {
+                    "latitude": vehicle_lat,
+                    "longitude": vehicle_lon,
+                    "last_update": pass_data.get("LastUpdateTimeStamp"),
+                }
+            
             departures.append({
                 "line_number": line_number,
                 "destination": destination,
@@ -130,6 +141,8 @@ class NLPublicTransportAPI:
                 "transport_type": pass_data.get("TransportType", "BUS"),
                 "status": status,
                 "minutes_until_departure": self._minutes_until(pass_data.get("ExpectedDepartureTime")),
+                "vehicle_position": vehicle_position,
+                "journey_number": pass_data.get("JourneyNumber"),
             })
         
         # Sort by expected departure time
