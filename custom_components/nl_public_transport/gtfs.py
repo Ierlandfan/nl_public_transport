@@ -55,12 +55,19 @@ class GTFSStopCache:
                     for row in reader:
                         stop_id = row.get("stop_id", "")
                         if stop_id:
+                            # Handle stop_code - it might be "None" string or empty
+                            stop_code_raw = row.get("stop_code", "").strip()
+                            if stop_code_raw and stop_code_raw != "None":
+                                stop_code = stop_code_raw
+                            else:
+                                stop_code = stop_id
+                            
                             stops[stop_id] = {
                                 "stop_id": stop_id,
                                 "stop_name": row.get("stop_name", ""),
                                 "stop_lat": float(row.get("stop_lat", 0)),
                                 "stop_lon": float(row.get("stop_lon", 0)),
-                                "stop_code": row.get("stop_code", "").strip() or stop_id,
+                                "stop_code": stop_code,
                                 "type": "stop",  # GTFS stops are bus/tram/metro
                             }
             
