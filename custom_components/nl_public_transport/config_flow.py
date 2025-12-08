@@ -191,8 +191,8 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if origin_station and dest_station:
                     # Store final route data with selected stations
                     self.route_data = {
-                        CONF_ORIGIN: origin_station["name"],
-                        CONF_DESTINATION: dest_station["name"],
+                        CONF_ORIGIN: origin_station["id"],
+                        CONF_DESTINATION: dest_station["id"],
                         **self.search_data
                     }
                     
@@ -486,8 +486,8 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if origin_station and dest_station:
                     # Add this leg
                     leg = {
-                        CONF_LEG_ORIGIN: origin_station["name"],
-                        CONF_LEG_DESTINATION: dest_station["name"],
+                        CONF_LEG_ORIGIN: origin_station["id"],
+                        CONF_LEG_DESTINATION: dest_station["id"],
                         CONF_LEG_TRANSPORT_TYPE: self.search_data.get("transport_type", "train"),
                         CONF_LEG_LINE_FILTER: self.search_data.get("line_filter", ""),
                     }
