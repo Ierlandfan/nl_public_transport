@@ -27,7 +27,10 @@ class GTFSStopCache:
 
     async def load(self) -> None:
         """Load GTFS data from bundled file."""
+        # Always reload to ensure we have the latest stop_code fix
+        # (Previous versions had a bug where stop_code was "None")
         if self._loaded:
+            _LOGGER.debug("GTFS already loaded, skipping reload")
             return
 
         if not BUNDLED_GTFS_FILE.exists():
