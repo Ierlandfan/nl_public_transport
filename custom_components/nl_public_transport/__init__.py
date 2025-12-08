@@ -71,6 +71,8 @@ class NLPublicTransportCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         """Fetch data from API."""
+        from datetime import date
+        
         try:
             routes = self.entry.data.get("routes", [])
             data = {}
@@ -78,6 +80,52 @@ class NLPublicTransportCoordinator(DataUpdateCoordinator):
             num_departures = self.entry.options.get(CONF_NUM_DEPARTURES, DEFAULT_NUM_DEPARTURES)
             
             for route in routes:
+                origin = route["origin"]
+                destination = route["destination"]
+                line_filter = route.get(CONF_LINE_FILTER, "")
+                
+                # Check if route should be active
+                if not should_show_route(route, current_time):
+                    continue
+                
+                # Get real-time data from OVAPI
+                journey_data = await self.api.get_journey(
+                    origin, 
+                    destination, 
+                    num_departures=num_departures,
+                    line_filter=line_filter
+                )
+                
+                # Also get today's full schedule from GTFS
+                try:
+                    schedule_data = await self.api.get_full_schedule(
+                        origin=origin,
+                        destination=destination,
+                        target_date=current_time.date(),
+                        start_time=current_time.strftime("%H:%M:%S"),
+                        end_time="23:59:59",
+                        line_filter=line_filter,
+                        limit=20
+                    )
+                    
+                    # Merge schedule into journey data
+                    journey_data["scheduled_departures"] = schedule_data.get("scheduled_departures", [])
+                    journey_data["schedule_date"] = schedule_data.get("schedule_date")
+                    
+                except Exception as err:
+                    _LOGGER.debug(f"Could not fetch schedule: {err}")
+                
+                data[f"{origin}_{destination}"] = journey_data
+                
+                # Send notifications for delays/disruptions
+                await self.notification_manager.check_and_notify(
+                    route, journey_data, current_time
+                )
+            
+            return data
+            
+        except Exception as err:
+            raise UpdateFailed(f"Error fetching data: {err}")
                 # Check if route should be active today
                 if not should_show_route(route, current_time):
                     continue
