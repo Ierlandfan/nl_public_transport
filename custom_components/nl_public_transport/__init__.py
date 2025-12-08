@@ -71,8 +71,6 @@ class NLPublicTransportCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         """Fetch data from API."""
-        from datetime import date
-        
         try:
             routes = self.entry.data.get("routes", [])
             data = {}
@@ -96,8 +94,9 @@ class NLPublicTransportCoordinator(DataUpdateCoordinator):
                     line_filter=line_filter
                 )
                 
-                # Also get today's full schedule from GTFS
+                # Get today's schedule from GTFS
                 try:
+                    from datetime import date
                     schedule_data = await self.api.get_full_schedule(
                         origin=origin,
                         destination=destination,
@@ -107,34 +106,14 @@ class NLPublicTransportCoordinator(DataUpdateCoordinator):
                         line_filter=line_filter,
                         limit=20
                     )
-                    
-                    # Merge schedule into journey data
                     journey_data["scheduled_departures"] = schedule_data.get("scheduled_departures", [])
                     journey_data["schedule_date"] = schedule_data.get("schedule_date")
-                    
                 except Exception as err:
                     _LOGGER.debug(f"Could not fetch schedule: {err}")
                 
                 data[f"{origin}_{destination}"] = journey_data
-                
-                # Send notifications for delays/disruptions
-                await self.notification_manager.check_and_notify(
-                    route, journey_data, current_time
-                )
+                await self.notification_manager.check_and_notify(route, journey_data, current_time)
             
             return data
-            
         except Exception as err:
             raise UpdateFailed(f"Error fetching data: {err}")
-                    
-                    # Check if reverse route should be active (based on return_time)
-                    if should_show_route(reverse_route_config, current_time):
-                        reverse_data = await self.api.get_journey(destination, origin, num_departures, line_filter)
-                        data[f"{destination}_{origin}"] = reverse_data
-                        
-                        # Check reverse route for notifications
-                        await self.notification_manager.check_and_notify(reverse_route_config, reverse_data)
-            
-            return data
-        except Exception as err:
-            raise UpdateFailed(f"Error communicating with API: {err}")

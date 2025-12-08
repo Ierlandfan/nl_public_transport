@@ -46,6 +46,40 @@
       },
       "finish": {
         "title": "Setup Complete"
+      },
+      "add_multi_leg_route": {
+        "title": "Multi-Leg Journey Setup",
+        "description": "Create a journey with multiple connections (e.g., Train \u2192 Bus \u2192 Tram)",
+        "data": {
+          "route_name": "Route Name",
+          "min_transfer_time": "Minimum Transfer Time (minutes)"
+        }
+      },
+      "add_leg": {
+        "title": "Add Journey Leg",
+        "description": "Configure a leg of your journey",
+        "data": {
+          "leg_origin_search": "Origin Station/Stop",
+          "leg_destination_search": "Destination Station/Stop",
+          "transport_type": "Transport Type",
+          "line_filter": "Line Number (optional)"
+        }
+      },
+      "select_leg_stations": {
+        "title": "Select Stations",
+        "description": "Choose the exact stations for this leg",
+        "data": {
+          "selected_origin": "Origin",
+          "selected_destination": "Destination"
+        }
+      },
+      "leg_menu": {
+        "title": "Multi-Leg Route",
+        "description": "Add another leg or finish the route",
+        "menu_options": {
+          "add_leg": "Add Another Leg",
+          "finish_multi_leg": "Finish Route"
+        }
       }
     },
     "error": {
@@ -55,11 +89,13 @@
       "no_routes": "Please add at least one route",
       "return_time_required": "Return time is required when reverse route is enabled",
       "cannot_connect": "Cannot connect to transport API",
-      "no_journeys_found": "No journeys found for this route"
+      "no_journeys_found": "No journeys found for this route",
+      "need_multiple_legs": "Multi-leg route requires at least 2 legs"
     },
     "abort": {
       "already_configured": "Integration is already configured",
-      "no_routes": "No routes configured"
+      "no_routes": "No routes configured",
+      "need_multiple_legs": "Multi-leg route requires at least 2 legs. Please add more legs."
     }
   },
   "options": {
