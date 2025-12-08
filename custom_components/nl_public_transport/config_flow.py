@@ -205,15 +205,15 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         _LOGGER.error(f"Error fetching lines: {err}", exc_info=True)
                         return self.async_abort(reason="cannot_connect")
         
-        # Build station options for dropdowns
+        # Build station options for dropdowns  
         origin_station_options = [
             {"value": str(station["id"]), "label": station["name"]}
-            for station in self.origin_options[:30]  # Show up to 30 results
+            for station in self.origin_options[:100]  # Show up to 100 results
         ]
         
         dest_station_options = [
             {"value": str(station["id"]), "label": station["name"]}
-            for station in self.destination_options[:30]  # Show up to 30 results
+            for station in self.destination_options[:100]  # Show up to 100 results
         ]
         
         return self.async_show_form(
