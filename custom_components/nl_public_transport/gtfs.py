@@ -27,11 +27,9 @@ class GTFSStopCache:
 
     async def load(self) -> None:
         """Load GTFS data from bundled file."""
-        # Always reload to ensure we have the latest stop_code fix
-        # (Previous versions had a bug where stop_code was "None")
-        if self._loaded:
-            _LOGGER.debug("GTFS already loaded, skipping reload")
-            return
+        # Force reload every time to ensure stop_code fixes are applied
+        # (HA may cache the config flow instance)
+        _LOGGER.info("Loading GTFS stop data...")
 
         if not BUNDLED_GTFS_FILE.exists():
             _LOGGER.warning("GTFS file not found at %s - bus/tram search will be limited", BUNDLED_GTFS_FILE)
