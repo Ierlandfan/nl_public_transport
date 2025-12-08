@@ -91,7 +91,7 @@ class NLPublicTransportAPI:
         """Search for locations/stops."""
         try:
             url = f"{self._base_url}/locations"
-            params = {"query": query, "results": 100}  # Increased to 100 for more results
+            params = {"query": query, "results": 500}  # Very high limit to get all matches
             
             _LOGGER.debug(f"Searching location: {url}?query={query}")
             
@@ -117,7 +117,7 @@ class NLPublicTransportAPI:
                     if loc.get("name")  # Just ensure it has a name
                 ]
                 
-                _LOGGER.info(f"Found {len(locations)} locations for query '{query}'")
+                _LOGGER.info(f"Found {len(locations)} locations for query '{query}' - showing all results")
                 return locations
                 
         except Exception as err:
