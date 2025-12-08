@@ -36,7 +36,8 @@ class NLPublicTransportAPI:
             async with self.session.get(url, timeout=10) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    _LOGGER.error(f"OVAPI returned status {response.status}: {error_text}")
+                    _LOGGER.error(f"OVAPI returned status {response.status} for stop '{origin}': {error_text[:200]}")
+                    _LOGGER.error(f"Requested URL was: {url}")
                     return self._get_default_data()
                 
                 data = await response.json()
