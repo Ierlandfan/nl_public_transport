@@ -42,6 +42,11 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self.origin_options: list[dict[str, Any]] = []
         self.destination_options: list[dict[str, Any]] = []
         self.search_data: dict[str, Any] = {}
+        
+        # Multi-leg journey data
+        self.current_legs: list[dict[str, Any]] = []
+        self.route_name: str = ""
+        self.last_destination: str = ""  # Auto-fill next leg's origin
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -62,7 +67,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_menu(
             step_id="user",
-            menu_options=["add_route", "finish"],
+            menu_options=["add_route", "add_multi_leg_route", "finish"],
         )
 
     async def async_step_add_route(
@@ -370,6 +375,191 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> NLPublicTransportOptionsFlow:
         """Get the options flow for this handler."""
         return NLPublicTransportOptionsFlow(config_entry)
+    
+    # Multi-leg journey configuration steps
+    
+    async def async_step_add_multi_leg_route(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Start multi-leg route configuration - get route name."""
+        errors = {}
+        
+        if user_input is not None:
+            from .const import CONF_ROUTE_NAME, CONF_MIN_TRANSFER_TIME, DEFAULT_MIN_TRANSFER_TIME
+            self.route_name = user_input.get(CONF_ROUTE_NAME, "Multi-leg Route")
+            self.current_legs = []
+            self.last_destination = ""
+            self.search_data[CONF_MIN_TRANSFER_TIME] = user_input.get(CONF_MIN_TRANSFER_TIME, DEFAULT_MIN_TRANSFER_TIME)
+            return await self.async_step_add_leg()
+        
+        from .const import CONF_ROUTE_NAME, CONF_MIN_TRANSFER_TIME, DEFAULT_MIN_TRANSFER_TIME
+        return self.async_show_form(
+            step_id="add_multi_leg_route",
+            data_schema=vol.Schema({
+                vol.Required(CONF_ROUTE_NAME, default="Morning Commute"): str,
+                vol.Optional(CONF_MIN_TRANSFER_TIME, default=DEFAULT_MIN_TRANSFER_TIME): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=30)
+                ),
+            }),
+            errors=errors,
+        )
+    
+    async def async_step_add_leg(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Add a leg to the multi-leg journey."""
+        errors = {}
+        
+        if user_input is not None:
+            leg_origin_search = user_input.get("leg_origin_search")
+            leg_destination_search = user_input.get("leg_destination_search")
+            
+            if leg_origin_search and leg_destination_search:
+                # Ensure API is initialized
+                if self.api is None:
+                    session = async_get_clientsession(self.hass)
+                    self.api = NLPublicTransportAPI(session)
+                
+                try:
+                    # Search for stations
+                    self.origin_options = await self.api.search_location(leg_origin_search)
+                    self.destination_options = await self.api.search_location(leg_destination_search)
+                    
+                    if not self.origin_options or not self.destination_options:
+                        errors["base"] = "no_stations_found"
+                    else:
+                        # Store leg config temporarily
+                        self.search_data.update({
+                            "transport_type": user_input.get("transport_type", "train"),
+                            "line_filter": user_input.get("line_filter", ""),
+                        })
+                        return await self.async_step_select_leg_stations()
+                        
+                except Exception as err:
+                    _LOGGER.error(f"Error searching for leg stations: {err}", exc_info=True)
+                    errors["base"] = "cannot_connect"
+            else:
+                errors["base"] = "invalid_stop"
+        
+        # Pre-fill origin with last destination if available
+        default_origin = self.last_destination if self.last_destination else ""
+        leg_number = len(self.current_legs) + 1
+        
+        return self.async_show_form(
+            step_id="add_leg",
+            data_schema=vol.Schema({
+                vol.Required("leg_origin_search", default=default_origin): str,
+                vol.Required("leg_destination_search"): str,
+                vol.Optional("transport_type", default="train"): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            {"value": "train", "label": "Train"},
+                            {"value": "bus", "label": "Bus/Tram"},
+                        ],
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional("line_filter"): str,
+            }),
+            errors=errors,
+            description_placeholders={
+                "leg_number": str(leg_number),
+                "route_name": self.route_name,
+            },
+        )
+    
+    async def async_step_select_leg_stations(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Select specific origin and destination for this leg."""
+        from .const import CONF_LEG_ORIGIN, CONF_LEG_DESTINATION, CONF_LEG_TRANSPORT_TYPE, CONF_LEG_LINE_FILTER
+        
+        if user_input is not None:
+            selected_origin = user_input.get("selected_origin")
+            selected_destination = user_input.get("selected_destination")
+            
+            if selected_origin and selected_destination:
+                # Find station details
+                origin_station = next((s for s in self.origin_options if str(s["id"]) == selected_origin), None)
+                dest_station = next((s for s in self.destination_options if str(s["id"]) == selected_destination), None)
+                
+                if origin_station and dest_station:
+                    # Add this leg
+                    leg = {
+                        CONF_LEG_ORIGIN: origin_station["name"],
+                        CONF_LEG_DESTINATION: dest_station["name"],
+                        CONF_LEG_TRANSPORT_TYPE: self.search_data.get("transport_type", "train"),
+                        CONF_LEG_LINE_FILTER: self.search_data.get("line_filter", ""),
+                    }
+                    self.current_legs.append(leg)
+                    self.last_destination = dest_station["name"]
+                    
+                    # Show menu: add another leg or finish
+                    return await self.async_step_leg_menu()
+        
+        # Build dropdown options
+        origin_options = [
+            {"value": str(station["id"]), "label": station["name"]}
+            for station in self.origin_options
+        ]
+        
+        dest_options = [
+            {"value": str(station["id"]), "label": station["name"]}
+            for station in self.destination_options
+        ]
+        
+        return self.async_show_form(
+            step_id="select_leg_stations",
+            data_schema=vol.Schema({
+                vol.Required("selected_origin"): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=origin_options,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Required("selected_destination"): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=dest_options,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+            }),
+        )
+    
+    async def async_step_leg_menu(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Show menu to add another leg or finish the route."""
+        return self.async_show_menu(
+            step_id="leg_menu",
+            menu_options=["add_leg", "finish_multi_leg"],
+        )
+    
+    async def async_step_finish_multi_leg(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Finish configuring the multi-leg route."""
+        from .const import CONF_ROUTE_NAME, CONF_LEGS, CONF_MIN_TRANSFER_TIME, DEFAULT_MIN_TRANSFER_TIME, CONF_NUM_DEPARTURES, DEFAULT_NUM_DEPARTURES
+        
+        if len(self.current_legs) < 2:
+            return self.async_abort(reason="need_multiple_legs")
+        
+        # Create the multi-leg route
+        route = {
+            CONF_ROUTE_NAME: self.route_name,
+            CONF_LEGS: self.current_legs,
+            CONF_MIN_TRANSFER_TIME: self.search_data.get(CONF_MIN_TRANSFER_TIME, DEFAULT_MIN_TRANSFER_TIME),
+            CONF_NUM_DEPARTURES: DEFAULT_NUM_DEPARTURES,
+        }
+        
+        self.routes.append(route)
+        
+        # Clear leg data
+        self.current_legs = []
+        self.route_name = ""
+        self.last_destination = ""
+        
+        return await self.async_step_user()
 
 
 class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):

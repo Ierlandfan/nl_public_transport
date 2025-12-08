@@ -14,6 +14,17 @@ CONF_MIN_DELAY_THRESHOLD = "min_delay_threshold"
 CONF_NUM_DEPARTURES = "num_departures"
 CONF_LINE_FILTER = "line_filter"  # Filter by specific bus/train line numbers
 
+# Multi-leg journey constants
+CONF_LEGS = "legs"
+CONF_LEG_ORIGIN = "leg_origin"
+CONF_LEG_DESTINATION = "leg_destination"
+CONF_LEG_TRANSPORT_TYPE = "leg_transport_type"
+CONF_LEG_LINE_FILTER = "leg_line_filter"
+CONF_ROUTE_NAME = "route_name"
+CONF_MIN_TRANSFER_TIME = "min_transfer_time"  # Minimum time needed for transfer (minutes)
+
+DEFAULT_MIN_TRANSFER_TIME = 5  # 5 minutes minimum transfer time
+
 API_9292_URL = "https://v6.db.transport.rest"
 API_NS_URL = "https://gateway.apiportal.ns.nl"
 
@@ -24,6 +35,17 @@ ATTR_ARRIVAL_TIME = "arrival_time"
 ATTR_PLATFORM = "platform"
 ATTR_VEHICLE_TYPE = "vehicle_type"
 ATTR_ROUTE_COORDINATES = "route_coordinates"
+
+# Multi-leg journey attributes
+ATTR_LEG_NUMBER = "leg_number"
+ATTR_TRANSFER_TIME = "transfer_time"
+ATTR_CONNECTION_STATUS = "connection_status"
+ATTR_TOTAL_JOURNEY_TIME = "total_journey_time"
+
+# Connection status values
+CONNECTION_OK = "ok"
+CONNECTION_WARNING = "warning"  # Tight connection
+CONNECTION_MISSED = "missed"
 
 # Event types
 EVENT_DELAY_DETECTED = f"{DOMAIN}_delay_detected"
