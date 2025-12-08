@@ -181,3 +181,36 @@ class NLPublicTransportAPI:
             _LOGGER.debug(f"Error calculating minutes until: {err}")
             return 0
 
+
+    async def search_location(self, query: str) -> list[dict[str, Any]]:
+        """Search for locations/stops using GTFS."""
+        # Load GTFS cache if not already loaded
+        if not self._gtfs_loaded:
+            await self._gtfs_cache.load()
+            self._gtfs_loaded = True
+        
+        # Search GTFS stops (buses, trams, metro, trains)
+        results = self._gtfs_cache.search(query, limit=200)
+        
+        _LOGGER.info(f"Found {len(results)} locations for query '{query}'")
+        return results
+
+    def _get_default_data(self) -> dict[str, Any]:
+        """Return default/empty data structure."""
+        return {
+            "origin": "",
+            "destination": "",
+            "departure_time": None,
+            "arrival_time": None,
+            "delay": 0,
+            "delay_reason": "",
+            "platform": "",
+            "vehicle_types": [],
+            "coordinates": [],
+            "upcoming_departures": [],
+            "alternatives": [],
+            "has_alternatives": False,
+            "missed_connection": False,
+            "reroute_recommended": False,
+            "journey_description": [],
+        }
