@@ -92,41 +92,87 @@ class NLPublicTransportAPI:
             return self._get_default_data()
 
     async def search_location(self, query: str) -> list[dict[str, Any]]:
-        """Search for locations/stops."""
+        """Search for locations/stops using both GTFS (bus/tram) and REST API (trains)."""
+        # Load GTFS cache if not already loaded
+        if not self._gtfs_loaded:
+            await self._gtfs_cache.load()
+            self._gtfs_loaded = True
+        
+        # Search GTFS stops (buses, trams, metro) - already labeled
+        gtfs_results = self._gtfs_cache.search(query, limit=100)
+        
+        # Search REST API for train stations and add labels
+        train_results = await self._search_train_stations(query)
+        
+        # Combine results: GTFS first (local transport), then trains
+        all_results = gtfs_results + train_results
+        
+        # Remove duplicates based on name similarity
+        unique_results = self._deduplicate_results(all_results)
+        
+        _LOGGER.info(f"Found {len(unique_results)} locations for query '{query}' ({len(gtfs_results)} local, {len(train_results)} trains)")
+        return unique_results
+    
+    async def _search_train_stations(self, query: str) -> list[dict[str, Any]]:
+        """Search for train stations using the REST API."""
         try:
             url = f"{self._base_url}/locations"
-            params = {"query": query, "results": 500}  # Very high limit to get all matches
+            params = {"query": query, "results": 50}
             
-            _LOGGER.debug(f"Searching location: {url}?query={query}")
+            _LOGGER.debug(f"Searching train stations: {url}?query={query}")
             
             async with self.session.get(url, params=params, timeout=10) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    _LOGGER.error(f"Location search API returned status {response.status}: {error_text}")
+                    _LOGGER.error(f"Train station API returned status {response.status}: {error_text}")
                     return []
                 
                 data = await response.json()
                 
-                # Include all location types - stations, stops, and addresses
-                # Don't filter by type to catch all possibilities
-                locations = [
-                    {
+                # Filter for actual stations and add type labels
+                locations = []
+                for loc in data:
+                    if not loc.get("name"):
+                        continue
+                    
+                    loc_type = loc.get("type", "unknown")
+                    name = loc.get("name")
+                    
+                    # Add transport type label based on type
+                    if loc_type == "station":
+                        labeled_name = f"{name} (Train Station)"
+                    elif loc_type == "stop":
+                        labeled_name = f"{name} (Train Stop)"
+                    else:
+                        continue  # Skip non-train locations
+                    
+                    locations.append({
                         "id": loc.get("id"),
-                        "name": loc.get("name"),
+                        "name": labeled_name,
                         "latitude": loc.get("latitude"),
                         "longitude": loc.get("longitude"),
-                        "type": loc.get("type", "unknown"),
-                    }
-                    for loc in data
-                    if loc.get("name")  # Just ensure it has a name
-                ]
+                        "type": loc_type,
+                    })
                 
-                _LOGGER.info(f"Found {len(locations)} locations for query '{query}' - showing all results")
                 return locations
                 
         except Exception as err:
-            _LOGGER.error(f"Error searching location: {err}", exc_info=True)
+            _LOGGER.error(f"Error searching train stations: {err}", exc_info=True)
             return []
+    
+    def _deduplicate_results(self, results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Remove duplicate results based on exact name match."""
+        seen_names = set()
+        unique = []
+        
+        for result in results:
+            name = result.get("name", "").strip()
+            # Keep exact duplicates separate (e.g., different types at same location)
+            if name and name not in seen_names:
+                seen_names.add(name)
+                unique.append(result)
+        
+        return unique
 
     def _parse_journey(self, journey: dict[str, Any]) -> dict[str, Any]:
         """Parse journey data from API response."""
