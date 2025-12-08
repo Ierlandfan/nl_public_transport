@@ -7,6 +7,8 @@ from datetime import datetime, timedelta
 
 import aiohttp
 
+from .gtfs import GTFSStopCache
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -17,6 +19,8 @@ class NLPublicTransportAPI:
         """Initialize the API client."""
         self.session = session
         self._base_url = "https://v6.db.transport.rest"
+        self._gtfs_cache = GTFSStopCache()
+        self._gtfs_loaded = False
 
     async def get_journey(self, origin: str, destination: str, num_departures: int = 5, line_filter: str = "") -> dict[str, Any]:
         """Get journey information between two stops."""
