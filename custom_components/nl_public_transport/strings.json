@@ -80,6 +80,10 @@
           "add_leg": "Add Another Leg",
           "finish_multi_leg": "Finish Route"
         }
+      },
+      "finish_multi_leg": {
+        "title": "Complete Multi-Leg Route",
+        "description": "Your multi-leg journey has been configured"
       }
     },
     "error": {
@@ -102,6 +106,7 @@
     "step": {
       "init": {
         "title": "Manage Routes",
+        "description": "Add or remove transport routes",
         "menu_options": {
           "add_route": "Add New Route",
           "remove_route": "Remove Route",
@@ -135,8 +140,9 @@
       },
       "remove_route": {
         "title": "Remove Route",
+        "description": "Select a route to remove",
         "data": {
-          "route": "Select route to remove"
+          "route": "Route to remove"
         }
       }
     },
