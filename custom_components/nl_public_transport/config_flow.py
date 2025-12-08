@@ -179,9 +179,9 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             selected_destination = user_input.get("selected_destination")
             
             if selected_origin and selected_destination:
-                # Find the selected station details
-                origin_station = next((s for s in self.origin_options if s["id"] == selected_origin), None)
-                dest_station = next((s for s in self.destination_options if s["id"] == selected_destination), None)
+                # Find the selected station details (convert back to int for comparison)
+                origin_station = next((s for s in self.origin_options if str(s["id"]) == selected_origin), None)
+                dest_station = next((s for s in self.destination_options if str(s["id"]) == selected_destination), None)
                 
                 if origin_station and dest_station:
                     # Store final route data with selected stations
@@ -207,12 +207,12 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         
         # Build station options for dropdowns
         origin_station_options = [
-            {"value": station["id"], "label": station["name"]}
+            {"value": str(station["id"]), "label": station["name"]}
             for station in self.origin_options[:30]  # Show up to 30 results
         ]
         
         dest_station_options = [
-            {"value": station["id"], "label": station["name"]}
+            {"value": str(station["id"]), "label": station["name"]}
             for station in self.destination_options[:30]  # Show up to 30 results
         ]
         
