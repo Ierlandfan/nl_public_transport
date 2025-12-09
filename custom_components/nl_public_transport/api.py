@@ -27,6 +27,10 @@ class NLPublicTransportAPI:
 
     async def get_journey(self, origin: str, destination: str, num_departures: int = 5, line_filter: str = "") -> dict[str, Any]:
         """Get departure information from OVAPI."""
+        # DEBUG: Log what we received
+        _LOGGER.error(f"🔍 get_journey called with origin='{origin}' (type={type(origin).__name__}, len={len(origin)})")
+        _LOGGER.error(f"🔍 Destination='{destination}', line_filter='{line_filter}'")
+        
         try:
             # Get real-time departures from origin stop
             url = f"{OVAPI_BASE_URL}/tpc/{origin}"

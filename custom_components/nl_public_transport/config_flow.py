@@ -189,6 +189,10 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 dest_station = next((s for s in self.destination_options if str(s["id"]) == selected_destination), None)
                 
                 if origin_station and dest_station:
+                    # DEBUG: Log what we're about to save
+                    _LOGGER.error(f"🔍 Saving route: origin_station['id']='{origin_station['id']}', dest_station['id']='{dest_station['id']}'")
+                    _LOGGER.error(f"🔍 Origin station object: {origin_station}")
+                    
                     # Store final route data with selected stations
                     self.route_data = {
                         CONF_ORIGIN: origin_station["id"],
@@ -196,11 +200,13 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         **self.search_data
                     }
                     
+                    _LOGGER.error(f"🔍 Final route_data: {self.route_data}")
+                    
                     # Fetch available lines for these exact stations
                     try:
                         self.available_lines = await self._get_available_lines(
-                            origin_station["name"], 
-                            dest_station["name"]
+                            str(origin_station["id"]), 
+                            str(dest_station["id"])
                         )
                         if self.available_lines:
                             return await self.async_step_select_lines()

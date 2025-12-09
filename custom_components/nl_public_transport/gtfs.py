@@ -93,9 +93,14 @@ class GTFSStopCache:
             stop_id = stop_data.get("stop_id", "").lower()
             
             if query_lower in stop_name or query_lower in stop_id:
+                # DEBUG: Log what we're returning
+                result_id = stop_data["stop_code"]
+                result_name = f"{stop_data['stop_name']} (Bus/Tram)"
+                _LOGGER.info(f"Search result: id='{result_id}', name='{result_name}'")
+                
                 results.append({
                     "id": stop_data["stop_code"],  # Use stop_code for API calls
-                    "name": f"{stop_data['stop_name']} (Bus/Tram)",  # Add type label
+                    "name": result_name,  # Add type label
                     "latitude": stop_data["stop_lat"],
                     "longitude": stop_data["stop_lon"],
                     "type": "stop",
