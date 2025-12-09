@@ -116,6 +116,13 @@ class NLPublicTransportSensor(CoordinatorEntity, SensorEntity):
             "has_alternatives": data.get("has_alternatives", False),
         }
         
+        # Add location for map display (use first coordinate - origin stop)
+        coordinates = data.get("coordinates", [])
+        if coordinates and len(coordinates) > 0:
+            attrs["latitude"] = coordinates[0][0]
+            attrs["longitude"] = coordinates[0][1]
+            attrs["gps_accuracy"] = 0
+        
         # Add upcoming departures
         upcoming = data.get("upcoming_departures", [])
         if upcoming:
@@ -261,6 +268,13 @@ class NLPublicTransportMultiLegSensor(CoordinatorEntity, SensorEntity):
                 leg_summaries.append(summary)
             
             attrs["legs"] = leg_summaries
+            
+            # Add location for map display (use first leg's first coordinate)
+            first_leg_coords = legs[0].get("coordinates", [])
+            if first_leg_coords and len(first_leg_coords) > 0:
+                attrs["latitude"] = first_leg_coords[0][0]
+                attrs["longitude"] = first_leg_coords[0][1]
+                attrs["gps_accuracy"] = 0
         
         return attrs
 

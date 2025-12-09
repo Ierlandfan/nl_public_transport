@@ -85,6 +85,23 @@ class NLPublicTransportAPI:
                 first_departure = departures[0]
                 stop_info = stop_data.get("Stop", {})
                 
+                # Build route coordinates from stop locations and vehicle positions
+                coordinates = []
+                
+                # Add origin stop coordinates
+                origin_lat = stop_info.get("Latitude")
+                origin_lon = stop_info.get("Longitude")
+                if origin_lat and origin_lon:
+                    coordinates.append([origin_lat, origin_lon])
+                
+                # Add vehicle position if available
+                vehicle_pos = first_departure.get("vehicle_position")
+                if vehicle_pos:
+                    v_lat = vehicle_pos.get("latitude")
+                    v_lon = vehicle_pos.get("longitude")
+                    if v_lat and v_lon:
+                        coordinates.append([v_lat, v_lon])
+                
                 return {
                     "origin": stop_info.get("TimingPointName", origin),
                     "destination": first_departure["destination"],
@@ -94,7 +111,7 @@ class NLPublicTransportAPI:
                     "delay_reason": "",
                     "platform": "",
                     "vehicle_types": [first_departure["transport_type"]],
-                    "coordinates": [],
+                    "coordinates": coordinates,
                     "upcoming_departures": departures,
                     "alternatives": [],
                     "has_alternatives": len(departures) > 1,
