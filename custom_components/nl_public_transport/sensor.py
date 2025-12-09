@@ -122,6 +122,7 @@ class NLPublicTransportSensor(CoordinatorEntity, SensorEntity):
             attrs["latitude"] = coordinates[0][0]
             attrs["longitude"] = coordinates[0][1]
             attrs["gps_accuracy"] = 0
+            attrs["source_type"] = "gps"  # Required for map card
         
         # Add upcoming departures
         upcoming = data.get("upcoming_departures", [])
@@ -275,6 +276,7 @@ class NLPublicTransportMultiLegSensor(CoordinatorEntity, SensorEntity):
                 attrs["latitude"] = first_leg_coords[0][0]
                 attrs["longitude"] = first_leg_coords[0][1]
                 attrs["gps_accuracy"] = 0
+                attrs["source_type"] = "gps"  # Required for map card
         
         return attrs
 
