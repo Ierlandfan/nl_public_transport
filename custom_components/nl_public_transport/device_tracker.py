@@ -134,37 +134,33 @@ class NLPublicTransportMultiLegTracker(CoordinatorEntity, TrackerEntity):
     @property
     def latitude(self) -> float | None:
         """Return latitude value of the device (start of first leg)."""
-        if not self._legs:
+        # Get multi-leg route data
+        route_data = self.coordinator.data.get(self._route_name)
+        if not route_data or not route_data.get("leg_data"):
             return None
-            
-        # Get first leg's origin coordinates
-        first_leg = self._legs[0]
-        origin = first_leg.get(CONF_LEG_ORIGIN)
-        destination = first_leg.get(CONF_LEG_DESTINATION)
         
-        data = self.coordinator.data.get(f"{origin}_{destination}")
-        if data and data.get("coordinates"):
-            coords = data["coordinates"]
-            if coords and len(coords) > 0:
-                return coords[0][0]
+        # Get first leg's coordinates
+        leg_data = route_data["leg_data"]
+        if leg_data and len(leg_data) > 0:
+            first_leg_coords = leg_data[0].get("coordinates", [])
+            if first_leg_coords and len(first_leg_coords) > 0:
+                return first_leg_coords[0][0]
         return None
 
     @property
     def longitude(self) -> float | None:
         """Return longitude value of the device (start of first leg)."""
-        if not self._legs:
+        # Get multi-leg route data
+        route_data = self.coordinator.data.get(self._route_name)
+        if not route_data or not route_data.get("leg_data"):
             return None
-            
-        # Get first leg's origin coordinates
-        first_leg = self._legs[0]
-        origin = first_leg.get(CONF_LEG_ORIGIN)
-        destination = first_leg.get(CONF_LEG_DESTINATION)
         
-        data = self.coordinator.data.get(f"{origin}_{destination}")
-        if data and data.get("coordinates"):
-            coords = data["coordinates"]
-            if coords and len(coords) > 0:
-                return coords[0][1]
+        # Get first leg's coordinates
+        leg_data = route_data["leg_data"]
+        if leg_data and len(leg_data) > 0:
+            first_leg_coords = leg_data[0].get("coordinates", [])
+            if first_leg_coords and len(first_leg_coords) > 0:
+                return first_leg_coords[0][1]
         return None
 
     @property
@@ -175,26 +171,35 @@ class NLPublicTransportMultiLegTracker(CoordinatorEntity, TrackerEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra attributes including all leg coordinates."""
+        # Get multi-leg route data
+        route_data = self.coordinator.data.get(self._route_name)
+        if not route_data:
+            return {
+                "route_name": self._route_name,
+                "route_coordinates": [],
+                "legs": [],
+                "total_legs": len(self._legs),
+                "multi_leg": True,
+            }
+        
         all_coordinates = []
         leg_info = []
         
-        for idx, leg in enumerate(self._legs):
-            origin = leg.get(CONF_LEG_ORIGIN)
-            destination = leg.get(CONF_LEG_DESTINATION)
+        # Get leg data from coordinator
+        leg_data_list = route_data.get("leg_data", [])
+        
+        for leg_data in leg_data_list:
+            # Add this leg's coordinates
+            leg_coords = leg_data.get("coordinates", [])
+            all_coordinates.extend(leg_coords)
             
-            data = self.coordinator.data.get(f"{origin}_{destination}")
-            if data:
-                # Add this leg's coordinates
-                leg_coords = data.get("coordinates", [])
-                all_coordinates.extend(leg_coords)
-                
-                # Add leg info
-                leg_info.append({
-                    "leg_number": idx + 1,
-                    "origin": origin,
-                    "destination": destination,
-                    "coordinates": leg_coords,
-                })
+            # Add leg info
+            leg_info.append({
+                "leg_number": leg_data.get("leg_number", 0),
+                "origin": leg_data.get("origin_id", ""),
+                "destination": leg_data.get("destination_id", ""),
+                "coordinates": leg_coords,
+            })
         
         return {
             "route_name": self._route_name,
