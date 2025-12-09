@@ -31,6 +31,21 @@ class NLPublicTransportAPI:
         _LOGGER.error(f"🔍 get_journey called with origin='{origin}' (type={type(origin).__name__}, len={len(origin)})")
         _LOGGER.error(f"🔍 Destination='{destination}', line_filter='{line_filter}'")
         
+        # Load GTFS if we have a destination to filter by
+        valid_trip_ids = set()
+        if destination:
+            if not self._gtfs_loaded:
+                await self._gtfs_cache.load()
+                self._gtfs_loaded = True
+            
+            # Get trips that go from origin to destination
+            valid_trip_ids = self._gtfs_cache.get_trips_between_stops(origin, destination)
+            _LOGGER.error(f"🔍 Found {len(valid_trip_ids)} valid trips from {origin} to {destination}")
+            
+            if not valid_trip_ids:
+                _LOGGER.warning(f"No GTFS trips found between {origin} and {destination}")
+                # Continue anyway - maybe GTFS data is incomplete
+        
         try:
             # Get real-time departures from origin stop
             url = f"{OVAPI_BASE_URL}/tpc/{origin}"
@@ -56,9 +71,10 @@ class NLPublicTransportAPI:
                 # Extract and filter departures
                 departures = self._parse_ovapi_passes(
                     stop_data["Passes"], 
-                    destination, 
+                    destination,
                     line_filter,
-                    num_departures
+                    num_departures,
+                    valid_trip_ids
                 )
                 
                 if not departures:
@@ -98,10 +114,11 @@ class NLPublicTransportAPI:
         passes: dict[str, Any], 
         destination_filter: str,
         line_filter: str,
-        limit: int
+        limit: int,
+        valid_trip_ids: set[str] = None
     ) -> list[dict[str, Any]]:
         """Parse and filter OVAPI pass data."""
-        _LOGGER.error(f"🔍 _parse_ovapi_passes: destination_filter='{destination_filter}', line_filter='{line_filter}', total passes={len(passes)}")
+        _LOGGER.error(f"🔍 _parse_ovapi_passes: destination_filter='{destination_filter}', line_filter='{line_filter}', total passes={len(passes)}, valid_trips={len(valid_trip_ids) if valid_trip_ids else 0}")
         departures = []
         
         for pass_key, pass_data in passes.items():
@@ -116,18 +133,30 @@ class NLPublicTransportAPI:
             # Get line number and destination
             line_number = str(pass_data.get("LinePublicNumber", ""))
             destination = pass_data.get("DestinationName50", "")
+            journey_number = pass_data.get("JourneyNumber", "")
             
-            _LOGGER.error(f"🔍 Pass: line={line_number}, destination={destination}, status={status}")
+            _LOGGER.error(f"🔍 Pass: line={line_number}, destination={destination}, journey={journey_number}, status={status}")
             
-            # Apply filters
+            # Apply line filter
             if line_filter and line_filter not in line_number:
                 _LOGGER.error(f"🔍 Skipping: line_filter '{line_filter}' not in '{line_number}'")
                 continue
             
-            if destination_filter and destination_filter.lower() not in destination.lower():
-                _LOGGER.error(f"🔍 Skipping: destination_filter '{destination_filter}' not in '{destination}'")
-                # Don't filter by destination if it's the stop name
-                continue
+            # Apply GTFS trip filter if we have valid trips and a journey number
+            if valid_trip_ids and destination_filter:
+                # OVAPI JourneyNumber might match GTFS trip_id
+                # Try to match - journey numbers are often part of trip IDs
+                matched = False
+                if journey_number:
+                    for trip_id in valid_trip_ids:
+                        if journey_number in trip_id or trip_id.endswith(f"|{journey_number}|0"):
+                            matched = True
+                            _LOGGER.error(f"🔍 Matched journey {journey_number} to trip {trip_id}")
+                            break
+                
+                if not matched:
+                    _LOGGER.error(f"🔍 Skipping: journey {journey_number} not in valid trips")
+                    continue
             
             # Calculate delay
             delay = self._calculate_ovapi_delay(pass_data)

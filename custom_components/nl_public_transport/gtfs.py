@@ -23,6 +23,7 @@ class GTFSStopCache:
     def __init__(self) -> None:
         """Initialize the cache."""
         self._stops: dict[str, dict[str, Any]] = {}
+        self._trips: dict[str, list[dict[str, Any]]] = {}  # trip_id -> list of stops
         self._loaded = False
 
     async def load(self) -> None:
@@ -76,6 +77,38 @@ class GTFSStopCache:
             self._loaded = True
             _LOGGER.info("Loaded %d GTFS stops (bus/tram/metro)", len(stops))
             
+            # Also load stop_times to build trip information
+            _LOGGER.info("Loading GTFS trip data for route filtering...")
+            trips = {}
+            try:
+                with zipfile.ZipFile(BytesIO(zip_data)) as zip_file:
+                    if "stop_times.txt" in zip_file.namelist():
+                        with zip_file.open("stop_times.txt") as stop_times_file:
+                            stop_times_text = stop_times_file.read().decode("utf-8")
+                            reader = csv.DictReader(StringIO(stop_times_text))
+                            
+                            for row in reader:
+                                trip_id = row.get("trip_id", "")
+                                stop_id = row.get("stop_id", "")
+                                stop_sequence = int(row.get("stop_sequence", 0))
+                                
+                                if trip_id and stop_id:
+                                    if trip_id not in trips:
+                                        trips[trip_id] = []
+                                    trips[trip_id].append({
+                                        "stop_id": stop_id,
+                                        "sequence": stop_sequence,
+                                    })
+                
+                # Sort each trip by stop_sequence
+                for trip_id in trips:
+                    trips[trip_id].sort(key=lambda x: x["sequence"])
+                
+                self._trips = trips
+                _LOGGER.info("Loaded %d GTFS trips", len(trips))
+            except Exception as err:
+                _LOGGER.warning("Could not load trip data: %s", err)
+            
         except Exception as err:
             _LOGGER.error("Failed to load GTFS data: %s", err, exc_info=True)
             self._loaded = True
@@ -110,3 +143,32 @@ class GTFSStopCache:
                     break
 
         return results
+
+    def get_trips_between_stops(self, origin_stop_id: str, destination_stop_id: str) -> set[str]:
+        """Find all trip IDs that go from origin to destination.
+        
+        Returns a set of trip_ids where origin comes before destination in the stop sequence.
+        """
+        if not self._trips:
+            _LOGGER.debug("No trip data loaded for route filtering")
+            return set()
+        
+        matching_trips = set()
+        
+        for trip_id, stops in self._trips.items():
+            origin_seq = None
+            dest_seq = None
+            
+            for stop in stops:
+                if stop["stop_id"] == origin_stop_id:
+                    origin_seq = stop["sequence"]
+                if stop["stop_id"] == destination_stop_id:
+                    dest_seq = stop["sequence"]
+            
+            # Trip must visit origin before destination
+            if origin_seq is not None and dest_seq is not None and origin_seq < dest_seq:
+                matching_trips.add(trip_id)
+        
+        _LOGGER.debug(f"Found {len(matching_trips)} trips from {origin_stop_id} to {destination_stop_id}")
+        return matching_trips
+
