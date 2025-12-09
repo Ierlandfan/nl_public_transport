@@ -26,8 +26,19 @@ async def async_setup_entry(
     routes = entry.data.get("routes", [])
     
     for route in routes:
-        origin = route["origin"]
-        destination = route["destination"]
+        # Check if this is a multi-leg route or regular route
+        if "legs" in route:
+            # Multi-leg route - skip device tracker for now
+            # Multi-leg routes don't have simple origin/destination pairs
+            continue
+        
+        # Regular route
+        origin = route.get("origin")
+        destination = route.get("destination")
+        
+        if not origin or not destination:
+            continue
+        
         reverse = route.get("reverse", False)
         
         trackers.append(NLPublicTransportTracker(coordinator, origin, destination))
