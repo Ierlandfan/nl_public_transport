@@ -316,9 +316,9 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Extract unique lines from departures
             lines_dict = {}
             for departure in journey_data.get("upcoming_departures", []):
-                line_names = departure.get("line_names", [])
-                vehicle_types = departure.get("vehicle_types", [])
-                dep_time = departure.get("departure_time", "")
+                line_number = departure.get("line_number", "")
+                transport_type = departure.get("transport_type", "BUS")
+                dep_time = departure.get("expected_departure", "")
                 
                 # Extract time for display (HH:MM)
                 time_str = ""
@@ -330,16 +330,14 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     except Exception as e:
                         _LOGGER.debug(f"Could not parse time {dep_time}: {e}")
                 
-                # For each line name in this departure
-                for idx, line_name in enumerate(line_names):
-                    if line_name and line_name not in lines_dict:
-                        product = vehicle_types[idx] if idx < len(vehicle_types) else "unknown"
-                        lines_dict[line_name] = {
-                            "name": line_name,
-                            "product": product,
-                            "departure_time": time_str,
-                        }
-                        _LOGGER.debug(f"Found line: {product} {line_name} at {time_str}")
+                # Add line if not already in dict
+                if line_number and line_number not in lines_dict:
+                    lines_dict[line_number] = {
+                        "name": line_number,
+                        "product": transport_type,
+                        "departure_time": time_str,
+                    }
+                    _LOGGER.debug(f"Found line: {transport_type} {line_number} at {time_str}")
             
             # Also check journey legs for more detailed line info
             legs = journey_data.get("legs", [])
@@ -821,9 +819,9 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
             # Extract unique lines from departures
             lines_dict = {}
             for departure in journey_data.get("upcoming_departures", []):
-                line_names = departure.get("line_names", [])
-                vehicle_types = departure.get("vehicle_types", [])
-                dep_time = departure.get("departure_time", "")
+                line_number = departure.get("line_number", "")
+                transport_type = departure.get("transport_type", "BUS")
+                dep_time = departure.get("expected_departure", "")
                 
                 # Extract time for display (HH:MM)
                 time_str = ""
@@ -835,16 +833,14 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
                     except Exception as e:
                         _LOGGER.debug(f"Could not parse time {dep_time}: {e}")
                 
-                # For each line name in this departure
-                for idx, line_name in enumerate(line_names):
-                    if line_name and line_name not in lines_dict:
-                        product = vehicle_types[idx] if idx < len(vehicle_types) else "unknown"
-                        lines_dict[line_name] = {
-                            "name": line_name,
-                            "product": product,
-                            "departure_time": time_str,
-                        }
-                        _LOGGER.debug(f"Options: Found line: {product} {line_name} at {time_str}")
+                # Add line if not already in dict
+                if line_number and line_number not in lines_dict:
+                    lines_dict[line_number] = {
+                        "name": line_number,
+                        "product": transport_type,
+                        "departure_time": time_str,
+                    }
+                    _LOGGER.debug(f"Options: Found line: {transport_type} {line_number} at {time_str}")
             
             # Also check journey legs for more detailed line info
             legs = journey_data.get("legs", [])
