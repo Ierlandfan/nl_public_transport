@@ -225,17 +225,59 @@ class NLPublicTransportAPI:
 
 
     async def search_location(self, query: str) -> list[dict[str, Any]]:
-        """Search for locations/stops using GTFS."""
-        # Load GTFS cache if not already loaded
+        """Search for locations/stops using OVAPI CHB Registry + GTFS."""
+        results = []
+        
+        # First, search OVAPI stopareacode (includes all stops: bus, tram, metro, train)
+        try:
+            url = f"{OVAPI_BASE_URL}/stopareacode/"
+            _LOGGER.debug(f"Fetching all stops from OVAPI CHB Registry")
+            
+            async with self.session.get(url, timeout=15) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    query_lower = query.lower()
+                    
+                    for stop_code, stop_info in data.items():
+                        town = stop_info.get("TimingPointTown", "")
+                        name = stop_info.get("TimingPointName", "")
+                        
+                        # Search in both town and name
+                        if query_lower in town.lower() or query_lower in name.lower():
+                            # Determine stop type from name
+                            stop_type = "stop"
+                            if any(word in name.lower() for word in ["station", "centraal"]):
+                                stop_type = "train"
+                            elif "busstation" in name.lower():
+                                stop_type = "bus"
+                            
+                            results.append({
+                                "id": stop_code,
+                                "name": f"{town}, {name}",
+                                "latitude": stop_info.get("Latitude", 0),
+                                "longitude": stop_info.get("Longitude", 0),
+                                "type": stop_type,
+                            })
+                else:
+                    _LOGGER.warning(f"OVAPI stopareacode returned status {response.status}")
+        except Exception as err:
+            _LOGGER.warning(f"Error fetching from OVAPI stopareacode: {err}")
+        
+        # Also search GTFS as fallback
         if not self._gtfs_loaded:
             await self._gtfs_cache.load()
             self._gtfs_loaded = True
         
-        # Search GTFS stops (buses, trams, metro, trains)
-        results = self._gtfs_cache.search(query, limit=200)
+        gtfs_results = self._gtfs_cache.search(query, limit=100)
         
-        _LOGGER.info(f"Found {len(results)} locations for query '{query}'")
-        return results
+        # Merge results, avoiding duplicates by ID
+        existing_ids = {r["id"] for r in results}
+        for gtfs_result in gtfs_results:
+            if gtfs_result["id"] not in existing_ids:
+                results.append(gtfs_result)
+        
+        _LOGGER.info(f"Found {len(results)} locations for query '{query}' (OVAPI + GTFS)")
+        return results[:200]  # Limit to 200 results
 
     def _get_default_data(self) -> dict[str, Any]:
         """Return default/empty data structure."""
