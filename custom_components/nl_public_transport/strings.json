@@ -52,7 +52,16 @@
         "description": "Create a journey with multiple connections (e.g., Train \u2192 Bus \u2192 Tram)",
         "data": {
           "route_name": "Route Name",
-          "min_transfer_time": "Minimum Transfer Time (minutes)"
+          "min_transfer_time": "Minimum Transfer Time (minutes)",
+          "departure_time": "Departure Time (optional)",
+          "days": "Active Days",
+          "exclude_holidays": "Skip on Public Holidays",
+          "custom_exclude_dates": "Custom Exclude Dates (YYYY-MM-DD, comma-separated)",
+          "notify_before": "Notify X minutes before departure",
+          "notify_services": "Notification Services",
+          "notify_on_delay": "Notify on Delays",
+          "notify_on_disruption": "Notify on Disruptions",
+          "min_delay_threshold": "Minimum Delay to Notify (minutes)"
         }
       },
       "add_leg": {

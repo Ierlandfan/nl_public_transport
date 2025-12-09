@@ -387,7 +387,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_add_multi_leg_route(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Start multi-leg route configuration - get route name."""
+        """Start multi-leg route configuration - get route name and schedule."""
         errors = {}
         
         if user_input is not None:
@@ -395,7 +395,20 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self.route_name = user_input.get(CONF_ROUTE_NAME, "Multi-leg Route")
             self.current_legs = []
             self.last_destination = ""
-            self.search_data[CONF_MIN_TRANSFER_TIME] = user_input.get(CONF_MIN_TRANSFER_TIME, DEFAULT_MIN_TRANSFER_TIME)
+            
+            # Store all scheduling and notification settings
+            self.search_data = {
+                CONF_MIN_TRANSFER_TIME: user_input.get(CONF_MIN_TRANSFER_TIME, DEFAULT_MIN_TRANSFER_TIME),
+                "departure_time": user_input.get("departure_time"),
+                "days": user_input.get("days", ["mon", "tue", "wed", "thu", "fri"]),
+                "exclude_holidays": user_input.get("exclude_holidays", True),
+                "custom_exclude_dates": user_input.get("custom_exclude_dates"),
+                CONF_NOTIFY_BEFORE: user_input.get(CONF_NOTIFY_BEFORE, 30),
+                CONF_NOTIFY_SERVICES: user_input.get(CONF_NOTIFY_SERVICES, []),
+                CONF_NOTIFY_ON_DELAY: user_input.get(CONF_NOTIFY_ON_DELAY, True),
+                CONF_NOTIFY_ON_DISRUPTION: user_input.get(CONF_NOTIFY_ON_DISRUPTION, True),
+                CONF_MIN_DELAY_THRESHOLD: user_input.get(CONF_MIN_DELAY_THRESHOLD, 5),
+            }
             return await self.async_step_add_leg()
         
         from .const import CONF_ROUTE_NAME, CONF_MIN_TRANSFER_TIME, DEFAULT_MIN_TRANSFER_TIME
@@ -405,6 +418,40 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_ROUTE_NAME, default="Morning Commute"): str,
                 vol.Optional(CONF_MIN_TRANSFER_TIME, default=DEFAULT_MIN_TRANSFER_TIME): vol.All(
                     vol.Coerce(int), vol.Range(min=1, max=30)
+                ),
+                vol.Optional("departure_time"): selector.TimeSelector(),
+                vol.Optional("days", default=["mon", "tue", "wed", "thu", "fri"]): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            {"value": "mon", "label": "Monday"},
+                            {"value": "tue", "label": "Tuesday"},
+                            {"value": "wed", "label": "Wednesday"},
+                            {"value": "thu", "label": "Thursday"},
+                            {"value": "fri", "label": "Friday"},
+                            {"value": "sat", "label": "Saturday"},
+                            {"value": "sun", "label": "Sunday"},
+                        ],
+                        multiple=True,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional("exclude_holidays", default=True): bool,
+                vol.Optional("custom_exclude_dates"): str,
+                vol.Optional(CONF_NOTIFY_BEFORE, default=30): vol.All(
+                    vol.Coerce(int), vol.Range(min=5, max=120)
+                ),
+                vol.Optional(CONF_NOTIFY_SERVICES, default=[]): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[],
+                        multiple=True,
+                        custom_value=True,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(CONF_NOTIFY_ON_DELAY, default=True): bool,
+                vol.Optional(CONF_NOTIFY_ON_DISRUPTION, default=True): bool,
+                vol.Optional(CONF_MIN_DELAY_THRESHOLD, default=5): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=60)
                 ),
             }),
             errors=errors,
@@ -550,12 +597,21 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if len(self.current_legs) < 2:
             return self.async_abort(reason="need_multiple_legs")
         
-        # Create the multi-leg route
+        # Create the multi-leg route with all scheduling settings
         route = {
             CONF_ROUTE_NAME: self.route_name,
             CONF_LEGS: self.current_legs,
             CONF_MIN_TRANSFER_TIME: self.search_data.get(CONF_MIN_TRANSFER_TIME, DEFAULT_MIN_TRANSFER_TIME),
             CONF_NUM_DEPARTURES: DEFAULT_NUM_DEPARTURES,
+            "departure_time": self.search_data.get("departure_time"),
+            "days": self.search_data.get("days", ["mon", "tue", "wed", "thu", "fri"]),
+            "exclude_holidays": self.search_data.get("exclude_holidays", True),
+            "custom_exclude_dates": self.search_data.get("custom_exclude_dates"),
+            CONF_NOTIFY_BEFORE: self.search_data.get(CONF_NOTIFY_BEFORE, 30),
+            CONF_NOTIFY_SERVICES: self.search_data.get(CONF_NOTIFY_SERVICES, []),
+            CONF_NOTIFY_ON_DELAY: self.search_data.get(CONF_NOTIFY_ON_DELAY, True),
+            CONF_NOTIFY_ON_DISRUPTION: self.search_data.get(CONF_NOTIFY_ON_DISRUPTION, True),
+            CONF_MIN_DELAY_THRESHOLD: self.search_data.get(CONF_MIN_DELAY_THRESHOLD, 5),
         }
         
         self.routes.append(route)
@@ -564,6 +620,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self.current_legs = []
         self.route_name = ""
         self.last_destination = ""
+        self.search_data = {}
         
         return await self.async_step_user()
 
