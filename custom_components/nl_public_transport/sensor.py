@@ -20,6 +20,8 @@ from .const import (
     ATTR_PLATFORM,
     ATTR_VEHICLE_TYPE,
     ATTR_ROUTE_COORDINATES,
+    CONF_LEGS,
+    CONF_ROUTE_NAME,
 )
 
 
@@ -35,15 +37,22 @@ async def async_setup_entry(
     routes = entry.data.get("routes", [])
     
     for route in routes:
-        origin = route["origin"]
-        destination = route["destination"]
-        reverse = route.get("reverse", False)
-        line_filter = route.get("line_filter", "")
-        
-        sensors.append(NLPublicTransportSensor(coordinator, origin, destination, line_filter))
-        
-        if reverse:
-            sensors.append(NLPublicTransportSensor(coordinator, destination, origin, line_filter))
+        # Check if this is a multi-leg route
+        if CONF_LEGS in route:
+            # Multi-leg route sensor
+            route_name = route.get(CONF_ROUTE_NAME, "Multi-leg Journey")
+            sensors.append(NLPublicTransportMultiLegSensor(coordinator, route_name, route))
+        else:
+            # Single leg route sensor
+            origin = route["origin"]
+            destination = route["destination"]
+            reverse = route.get("reverse", False)
+            line_filter = route.get("line_filter", "")
+            
+            sensors.append(NLPublicTransportSensor(coordinator, origin, destination, line_filter))
+            
+            if reverse:
+                sensors.append(NLPublicTransportSensor(coordinator, destination, origin, line_filter))
     
     async_add_entities(sensors)
 
@@ -156,3 +165,118 @@ class NLPublicTransportSensor(CoordinatorEntity, SensorEntity):
             return "mdi:subway-variant"
         
         return "mdi:train"
+
+
+class NLPublicTransportMultiLegSensor(CoordinatorEntity, SensorEntity):
+    """Representation of a multi-leg journey sensor."""
+
+    def __init__(
+        self,
+        coordinator: NLPublicTransportCoordinator,
+        route_name: str,
+        route_config: dict,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self._route_name = route_name
+        self._route_config = route_config
+        self._attr_unique_id = f"{DOMAIN}_multi_{route_name.lower().replace(' ', '_')}"
+        self._attr_name = f"Transit {route_name}"
+        self._attr_device_class = SensorDeviceClass.ENUM
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the state of the sensor."""
+        data = self.coordinator.data.get(self._route_name)
+        if not data:
+            return "Unknown"
+        
+        connection_status = data.get("connection_status", "unknown")
+        
+        if connection_status == "ok":
+            return "On Schedule"
+        elif connection_status == "tight":
+            return "Tight Connection"
+        elif connection_status == "warning":
+            return "Connection at Risk"
+        elif connection_status == "missed":
+            return "Connection Missed"
+        
+        return "Unknown"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the state attributes."""
+        data = self.coordinator.data.get(self._route_name)
+        if not data:
+            return {}
+        
+        attrs = {
+            "route_name": self._route_name,
+            "total_legs": data.get("total_legs", 0),
+            "min_transfer_time": data.get("min_transfer_time", 5),
+            "connection_status": data.get("connection_status", "unknown"),
+            "total_journey_time": data.get("total_journey_time"),
+            "warnings": data.get("warnings", []),
+        }
+        
+        # Add leg details
+        legs = data.get("legs", [])
+        if legs:
+            attrs["leg_count"] = len(legs)
+            
+            # First leg departure
+            if legs[0].get("departure_time"):
+                attrs["first_departure"] = legs[0]["departure_time"]
+            
+            # Last leg arrival
+            if legs[-1].get("arrival_time"):
+                attrs["final_arrival"] = legs[-1]["arrival_time"]
+            
+            # Leg summaries
+            leg_summaries = []
+            for leg in legs:
+                leg_number = leg.get("leg_number", 0)
+                origin = leg.get("origin", "Unknown")
+                destination = leg.get("destination", "Unknown")
+                departure = leg.get("departure_time", "")
+                arrival = leg.get("arrival_time", "")
+                delay = leg.get("delay", 0)
+                vehicle_types = leg.get("vehicle_types", [])
+                transfer_time = leg.get("transfer_time_to_next")
+                
+                summary = {
+                    "leg": leg_number,
+                    "origin": origin,
+                    "destination": destination,
+                    "departure": departure,
+                    "arrival": arrival,
+                    "delay": delay,
+                    "vehicle_type": ", ".join(vehicle_types) if vehicle_types else "Unknown",
+                }
+                
+                if transfer_time is not None:
+                    summary["transfer_time_to_next"] = transfer_time
+                
+                leg_summaries.append(summary)
+            
+            attrs["legs"] = leg_summaries
+        
+        return attrs
+
+    @property
+    def icon(self) -> str:
+        """Return the icon to use in the frontend."""
+        data = self.coordinator.data.get(self._route_name)
+        if not data:
+            return "mdi:routes"
+        
+        connection_status = data.get("connection_status", "ok")
+        
+        if connection_status == "missed":
+            return "mdi:alert-circle"
+        elif connection_status in ["warning", "tight"]:
+            return "mdi:alert"
+        
+        return "mdi:routes"
+
