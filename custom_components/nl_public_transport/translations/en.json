@@ -5,18 +5,82 @@
         "title": "Dutch Public Transport",
         "description": "Set up your public transport routes",
         "menu_options": {
-          "add_route": "Add Route",
+          "add_route": "Add Simple Route",
+          "add_multi_leg_route": "Add Multi-Leg Journey",
           "finish": "Finish Setup"
         }
       },
       "add_route": {
         "title": "Add Transport Route",
-        "description": "Enter your origin and destination. You can use station names (e.g., 'Amsterdam Centraal') or station codes.",
+        "description": "Enter origin and destination, then click Submit to search for stations.",
         "data": {
-          "origin": "Origin Station/Stop",
-          "destination": "Destination Station/Stop",
-          "reverse": "Enable reverse route (for return trips)"
+          "origin_search": "Origin (city or station)",
+          "destination_search": "Destination (city or station)",
+          "reverse": "Enable reverse route (for return trips)",
+          "departure_time": "Departure Time (optional)",
+          "return_time": "Return Departure Time (required if reverse enabled)",
+          "days": "Active Days",
+          "exclude_holidays": "Skip on Public Holidays",
+          "custom_exclude_dates": "Custom Exclude Dates (YYYY-MM-DD, comma-separated)",
+          "notify_before": "Notify X minutes before departure",
+          "notify_services": "Notification Services",
+          "notify_on_delay": "Notify on Delays",
+          "notify_on_disruption": "Notify on Disruptions",
+          "min_delay_threshold": "Minimum Delay to Notify (minutes)"
         }
+      },
+      "select_stations": {
+        "title": "Select Stations",
+        "description": "Choose your exact stations from the search results.",
+        "data": {
+          "selected_origin": "Origin Station",
+          "selected_destination": "Destination Station"
+        }
+      },
+      "select_lines": {
+        "title": "Select Lines to Track",
+        "description": "Choose which lines/routes to monitor. Leave empty to track all available lines.",
+        "data": {
+          "selected_lines": "Lines to track"
+        }
+      },
+      "add_multi_leg_route": {
+        "title": "Multi-Leg Journey Setup",
+        "description": "Create a journey with multiple connections (e.g., Bus → Train → Tram)",
+        "data": {
+          "route_name": "Route Name",
+          "min_transfer_time": "Minimum Transfer Time (minutes)"
+        }
+      },
+      "add_leg": {
+        "title": "Add Journey Leg",
+        "description": "Configure a leg of your journey",
+        "data": {
+          "leg_origin_search": "Origin Station/Stop",
+          "leg_destination_search": "Destination Station/Stop",
+          "transport_type": "Transport Type",
+          "line_filter": "Line Number (optional)"
+        }
+      },
+      "select_leg_stations": {
+        "title": "Select Stations",
+        "description": "Choose the exact stations for this leg",
+        "data": {
+          "selected_origin": "Origin",
+          "selected_destination": "Destination"
+        }
+      },
+      "leg_menu": {
+        "title": "Multi-Leg Route",
+        "description": "Add another leg or finish the route",
+        "menu_options": {
+          "add_leg": "Add Another Leg",
+          "finish_multi_leg": "Finish Route"
+        }
+      },
+      "finish_multi_leg": {
+        "title": "Complete Multi-Leg Route",
+        "description": "Your multi-leg journey has been configured"
       },
       "finish": {
         "title": "Setup Complete"
@@ -24,17 +88,26 @@
     },
     "error": {
       "invalid_stop": "Invalid station or stop code",
-      "no_routes": "Please add at least one route"
+      "invalid_origin": "Origin station not found. Please check the name or code.",
+      "invalid_destination": "Destination station not found. Please check the name or code.",
+      "no_routes": "Please add at least one route",
+      "return_time_required": "Return time is required when reverse route is enabled",
+      "cannot_connect": "Cannot connect to transport API",
+      "no_journeys_found": "No journeys found for this route",
+      "need_multiple_legs": "Multi-leg route requires at least 2 legs",
+      "no_stations_found": "No stations found. Please try a different search."
     },
     "abort": {
       "already_configured": "Integration is already configured",
-      "no_routes": "No routes configured"
+      "no_routes": "No routes configured",
+      "need_multiple_legs": "Multi-leg route requires at least 2 legs. Please add more legs."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "Manage Routes",
+        "description": "Add or remove transport routes",
         "menu_options": {
           "add_route": "Add New Route",
           "remove_route": "Remove Route",
@@ -46,15 +119,42 @@
         "data": {
           "origin": "Origin Station/Stop",
           "destination": "Destination Station/Stop",
-          "reverse": "Enable reverse route"
+          "reverse": "Enable reverse route",
+          "departure_time": "Departure Time (optional)",
+          "return_time": "Return Departure Time (required if reverse enabled)",
+          "days": "Active Days",
+          "exclude_holidays": "Skip on Public Holidays",
+          "custom_exclude_dates": "Custom Exclude Dates (YYYY-MM-DD, comma-separated)",
+          "line_filter": "Line Filter (comma-separated)",
+          "notify_before": "Notify X minutes before departure",
+          "notify_services": "Notification Services",
+          "notify_on_delay": "Notify on Delays",
+          "notify_on_disruption": "Notify on Disruptions",
+          "min_delay_threshold": "Minimum Delay to Notify (minutes)"
+        }
+      },
+      "select_lines": {
+        "title": "Select Lines to Track",
+        "description": "Choose which lines/routes to monitor. Leave empty to track all available lines.",
+        "data": {
+          "selected_lines": "Lines to track"
         }
       },
       "remove_route": {
         "title": "Remove Route",
+        "description": "Select a route to remove",
         "data": {
-          "route": "Select route to remove"
+          "route": "Route to remove"
         }
       }
+    },
+    "error": {
+      "invalid_stop": "Invalid station or stop code",
+      "invalid_origin": "Origin station not found. Please check the name or code.",
+      "invalid_destination": "Destination station not found. Please check the name or code.",
+      "return_time_required": "Return time is required when reverse route is enabled",
+      "cannot_connect": "Cannot connect to transport API",
+      "no_journeys_found": "No journeys found for this route"
     }
   }
 }
