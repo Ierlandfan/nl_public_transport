@@ -301,9 +301,9 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.error("API not initialized in _get_available_lines")
                 return []
             
-            # Fetch journey data
+            # Fetch journey data - don't filter by destination during config (we just want all lines from origin)
             _LOGGER.debug(f"Fetching journeys from {origin} to {destination}")
-            journey_data = await self.api.get_journey(origin, destination, num_departures=10, line_filter="")
+            journey_data = await self.api.get_journey(origin, "", num_departures=10, line_filter="")
             
             if not journey_data:
                 _LOGGER.warning("No journey data returned from API")
@@ -749,9 +749,9 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
                 _LOGGER.error("API not initialized in options _get_available_lines")
                 return []
             
-            # Fetch journey data
+            # Fetch journey data - don't filter by destination during config (we just want all lines from origin)
             _LOGGER.debug(f"Options: Fetching journeys from {origin} to {destination}")
-            journey_data = await self.api.get_journey(origin, destination, num_departures=10, line_filter="")
+            journey_data = await self.api.get_journey(origin, "", num_departures=10, line_filter="")
             
             if not journey_data:
                 _LOGGER.warning("Options: No journey data returned from API")
