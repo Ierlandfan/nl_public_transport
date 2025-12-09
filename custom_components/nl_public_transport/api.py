@@ -49,7 +49,8 @@ class NLPublicTransportAPI:
                 # OVAPI returns: {stop_code: {"Stop": {...}, "Passes": {...}}}
                 stop_data = data.get(origin, {})
                 if not stop_data or "Passes" not in stop_data:
-                    _LOGGER.warning(f"No departure data for stop {origin}")
+                    _LOGGER.error(f"🔍 No departure data for stop {origin}. Keys in response: {list(data.keys())}")
+                    _LOGGER.error(f"🔍 Response data structure: {data}")
                     return self._get_default_data()
                 
                 # Extract and filter departures
@@ -100,6 +101,7 @@ class NLPublicTransportAPI:
         limit: int
     ) -> list[dict[str, Any]]:
         """Parse and filter OVAPI pass data."""
+        _LOGGER.error(f"🔍 _parse_ovapi_passes: destination_filter='{destination_filter}', line_filter='{line_filter}', total passes={len(passes)}")
         departures = []
         
         for pass_key, pass_data in passes.items():
@@ -115,13 +117,17 @@ class NLPublicTransportAPI:
             line_number = str(pass_data.get("LinePublicNumber", ""))
             destination = pass_data.get("DestinationName50", "")
             
+            _LOGGER.error(f"🔍 Pass: line={line_number}, destination={destination}, status={status}")
+            
             # Apply filters
             if line_filter and line_filter not in line_number:
+                _LOGGER.error(f"🔍 Skipping: line_filter '{line_filter}' not in '{line_number}'")
                 continue
             
             if destination_filter and destination_filter.lower() not in destination.lower():
+                _LOGGER.error(f"🔍 Skipping: destination_filter '{destination_filter}' not in '{destination}'")
                 # Don't filter by destination if it's the stop name
-                pass
+                continue
             
             # Calculate delay
             delay = self._calculate_ovapi_delay(pass_data)
