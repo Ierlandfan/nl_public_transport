@@ -48,6 +48,19 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self.route_name: str = ""
         self.last_destination: str = ""  # Auto-fill next leg's origin
 
+    def _get_notify_services(self) -> list[str]:
+        """Get available notify services from Home Assistant."""
+        services = []
+        try:
+            # Get all notify services
+            notify_services = self.hass.services.async_services().get("notify", {})
+            for service_name in notify_services.keys():
+                if service_name != "persistent_notification":
+                    services.append(f"notify.{service_name}")
+        except Exception as err:
+            _LOGGER.debug(f"Could not fetch notify services: {err}")
+        return services
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -157,7 +170,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
                 vol.Optional(CONF_NOTIFY_SERVICES, default=[]): selector.SelectSelector(
                     selector.SelectSelectorConfig(
-                        options=[],
+                        options=self._get_notify_services(),
                         multiple=True,
                         custom_value=True,
                         mode=selector.SelectSelectorMode.DROPDOWN,
@@ -440,7 +453,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
                 vol.Optional(CONF_NOTIFY_SERVICES, default=[]): selector.SelectSelector(
                     selector.SelectSelectorConfig(
-                        options=[],
+                        options=self._get_notify_services(),
                         multiple=True,
                         custom_value=True,
                         mode=selector.SelectSelectorMode.DROPDOWN,
@@ -637,6 +650,20 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
         self.destination_options: list[dict[str, Any]] = []
         self.search_data: dict[str, Any] = {}
 
+    def _get_notify_services(self) -> list[str]:
+        """Get available notify services from Home Assistant."""
+        services = []
+        try:
+            # Get all notify services
+            notify_services = self.hass.services.async_services().get("notify", {})
+            for service_name in notify_services.keys():
+                if service_name != "persistent_notification":
+                    services.append(f"notify.{service_name}")
+        except Exception as err:
+            _LOGGER.debug(f"Could not fetch notify services: {err}")
+        return services
+
+
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -731,7 +758,7 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
                 ),
                 vol.Optional(CONF_NOTIFY_SERVICES, default=[]): selector.SelectSelector(
                     selector.SelectSelectorConfig(
-                        options=[],
+                        options=self._get_notify_services(),
                         multiple=True,
                         custom_value=True,
                         mode=selector.SelectSelectorMode.DROPDOWN,
