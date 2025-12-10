@@ -1104,9 +1104,13 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Finish options flow."""
+        # Preserve existing data like NS API key
+        data = dict(self.config_entry.data)
+        data["routes"] = self.routes
+        
         self.hass.config_entries.async_update_entry(
             self.config_entry,
-            data={"routes": self.routes},
+            data=data,
         )
         return self.async_create_entry(title="", data={})
 
