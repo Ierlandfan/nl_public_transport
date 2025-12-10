@@ -1111,11 +1111,16 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
             
             _LOGGER.debug(f"Finishing options flow, saving {len(self.routes)} routes")
             
-            self.hass.config_entries.async_update_entry(
-                self.config_entry,
-                data=data,
-            )
-            _LOGGER.debug("Config entry updated successfully")
+            # Only update if data actually changed
+            if data != self.config_entry.data:
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry,
+                    data=data,
+                )
+                _LOGGER.debug("Config entry updated successfully")
+            else:
+                _LOGGER.debug("No changes detected, skipping update")
+            
             return self.async_create_entry(title="", data={})
         except Exception as err:
             _LOGGER.error(f"Error finishing options flow: {err}", exc_info=True)
