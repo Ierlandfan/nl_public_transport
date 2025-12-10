@@ -47,10 +47,19 @@ class NLPublicTransportAPI:
                 # Continue anyway - maybe GTFS data is incomplete
         
         try:
-            # Get real-time departures from origin stop
-            url = f"{OVAPI_BASE_URL}/tpc/{origin}"
+            # Determine if this is a station area code (train/major station) or timing point code (bus stop)
+            # Station codes are typically 4 chars and mixed case (e.g., HnNS, amrnrd)
+            # Timing point codes are numeric (e.g., 38520071)
+            is_station_code = not origin.isdigit()
             
-            _LOGGER.debug(f"Requesting OVAPI departures from {url}")
+            if is_station_code:
+                # Use stopareacode endpoint for stations (returns nested structure)
+                url = f"{OVAPI_BASE_URL}/stopareacode/{origin}"
+            else:
+                # Use tpc endpoint for regular bus stops
+                url = f"{OVAPI_BASE_URL}/tpc/{origin}"
+            
+            _LOGGER.debug(f"Requesting OVAPI departures from {url} (station_code={is_station_code})")
             
             async with self.session.get(url, timeout=10) as response:
                 if response.status != 200:
@@ -61,11 +70,29 @@ class NLPublicTransportAPI:
                 
                 data = await response.json()
                 
-                # OVAPI returns: {stop_code: {"Stop": {...}, "Passes": {...}}}
-                stop_data = data.get(origin, {})
+                # Handle different response structures
+                if is_station_code:
+                    # stopareacode returns: {StopAreaCode: {TimingPointCode: {Stop, Passes}}}
+                    # We need to extract the first timing point's data
+                    area_data = data.get(origin, {})
+                    if not area_data:
+                        _LOGGER.error(f"🔍 No data for station area {origin}")
+                        return self._get_default_data()
+                    
+                    # Get the first timing point (station platforms/stops are grouped under timing points)
+                    timing_points = list(area_data.keys())
+                    if not timing_points:
+                        _LOGGER.error(f"🔍 No timing points found for station {origin}")
+                        return self._get_default_data()
+                    
+                    # Use the first timing point's data
+                    stop_data = area_data[timing_points[0]]
+                else:
+                    # tpc returns: {stop_code: {"Stop": {...}, "Passes": {...}}}
+                    stop_data = data.get(origin, {})
+                
                 if not stop_data or "Passes" not in stop_data:
                     _LOGGER.error(f"🔍 No departure data for stop {origin}. Keys in response: {list(data.keys())}")
-                    _LOGGER.error(f"🔍 Response data structure: {data}")
                     return self._get_default_data()
                 
                 # Extract and filter departures
