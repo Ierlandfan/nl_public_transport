@@ -30,8 +30,8 @@
         }
       },
       "select_stations": {
-        "title": "Select Stations",
-        "description": "Choose your exact stations from the search results.",
+        "title": "Select Stations and Lines",
+        "description": "Choose your exact stations from the search results, then select which lines to track.",
         "data": {
           "selected_origin": "Origin Station",
           "selected_destination": "Destination Station"
@@ -44,9 +44,12 @@
           "selected_lines": "Lines to track"
         }
       },
+      "finish": {
+        "title": "Setup Complete"
+      },
       "add_multi_leg_route": {
         "title": "Multi-Leg Journey Setup",
-        "description": "Create a journey with multiple connections (e.g., Bus → Train → Tram)",
+        "description": "Create a journey with multiple connections (e.g., Train \u2192 Bus \u2192 Tram)",
         "data": {
           "route_name": "Route Name",
           "min_transfer_time": "Minimum Transfer Time (minutes)",
@@ -90,9 +93,6 @@
       "finish_multi_leg": {
         "title": "Complete Multi-Leg Route",
         "description": "Your multi-leg journey has been configured"
-      },
-      "finish": {
-        "title": "Setup Complete"
       }
     },
     "error": {
@@ -103,8 +103,7 @@
       "return_time_required": "Return time is required when reverse route is enabled",
       "cannot_connect": "Cannot connect to transport API",
       "no_journeys_found": "No journeys found for this route",
-      "need_multiple_legs": "Multi-leg route requires at least 2 legs",
-      "no_stations_found": "No stations found. Please try a different search."
+      "need_multiple_legs": "Multi-leg route requires at least 2 legs"
     },
     "abort": {
       "already_configured": "Integration is already configured",
@@ -119,7 +118,9 @@
         "description": "Add or remove transport routes",
         "menu_options": {
           "add_route": "Add New Route",
+          "edit_route": "Edit Route",
           "remove_route": "Remove Route",
+          "configure_api": "Configure API Keys",
           "finish": "Save & Exit"
         }
       },
@@ -134,7 +135,6 @@
           "days": "Active Days",
           "exclude_holidays": "Skip on Public Holidays",
           "custom_exclude_dates": "Custom Exclude Dates (YYYY-MM-DD, comma-separated)",
-          "line_filter": "Line Filter (comma-separated)",
           "notify_before": "Notification time before departure (minutes)",
           "notify_services": "Notification Services",
           "notify_on_delay": "Notify on Delays",
@@ -154,6 +154,38 @@
         "description": "Select a route to remove",
         "data": {
           "route": "Route to remove"
+        }
+      },
+      "edit_route": {
+        "title": "Edit Route",
+        "description": "Select a route to edit",
+        "data": {
+          "route": "Route to edit"
+        }
+      },
+      "edit_route_details": {
+        "title": "Edit Route Settings",
+        "description": "Modify schedule and notification settings for this route",
+        "data": {
+          "departure_time": "Departure Time (optional)",
+          "days": "Active Days",
+          "exclude_holidays": "Skip on Public Holidays",
+          "custom_exclude_dates": "Custom Exclude Dates (YYYY-MM-DD, comma-separated)",
+          "notify_before": "Notification time before departure (minutes)",
+          "notify_services": "Notification Services",
+          "notify_on_delay": "Notify on Delays",
+          "notify_on_disruption": "Notify on Disruptions",
+          "min_delay_threshold": "Minimum Delay to Notify (minutes)"
+        }
+      },
+      "configure_api": {
+        "title": "Configure API Keys",
+        "description": "Configure API keys for additional features",
+        "data": {
+          "ns_api_key": "NS API Key (optional)"
+        },
+        "data_description": {
+          "ns_api_key": "Get your free API key from https://apiportal.ns.nl/ for real-time train data. Leave empty to use only OVAPI (bus/tram)."
         }
       }
     },

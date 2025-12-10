@@ -118,9 +118,10 @@
         "description": "Add or remove transport routes",
         "menu_options": {
           "add_route": "Add New Route",
+          "edit_route": "Edit Route",
           "remove_route": "Remove Route",
-          "finish": "Save & Exit",
-          "configure_api": "Configure API Keys"
+          "configure_api": "Configure API Keys",
+          "finish": "Save & Exit"
         }
       },
       "add_route": {
@@ -153,6 +154,28 @@
         "description": "Select a route to remove",
         "data": {
           "route": "Route to remove"
+        }
+      },
+      "edit_route": {
+        "title": "Edit Route",
+        "description": "Select a route to edit",
+        "data": {
+          "route": "Route to edit"
+        }
+      },
+      "edit_route_details": {
+        "title": "Edit Route Settings",
+        "description": "Modify schedule and notification settings for this route",
+        "data": {
+          "departure_time": "Departure Time (optional)",
+          "days": "Active Days",
+          "exclude_holidays": "Skip on Public Holidays",
+          "custom_exclude_dates": "Custom Exclude Dates (YYYY-MM-DD, comma-separated)",
+          "notify_before": "Notification time before departure (minutes)",
+          "notify_services": "Notification Services",
+          "notify_on_delay": "Notify on Delays",
+          "notify_on_disruption": "Notify on Disruptions",
+          "min_delay_threshold": "Minimum Delay to Notify (minutes)"
         }
       },
       "configure_api": {
