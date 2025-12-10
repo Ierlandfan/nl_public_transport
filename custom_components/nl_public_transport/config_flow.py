@@ -85,7 +85,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if self.api is None:
             session = async_get_clientsession(self.hass)
-            self.api = NLPublicTransportAPI(session)
+            self.api = NLPublicTransportAPI(session, ns_api_key=self._ns_api_key)
 
         return self.async_show_menu(
             step_id="user",
@@ -732,7 +732,8 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
         """Manage the options."""
         if self.api is None:
             session = async_get_clientsession(self.hass)
-            self.api = NLPublicTransportAPI(session)
+            ns_api_key = self.config_entry.data.get(CONF_NS_API_KEY)
+            self.api = NLPublicTransportAPI(session, ns_api_key=ns_api_key)
         
         return self.async_show_menu(
             step_id="init",
