@@ -1104,15 +1104,22 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Finish options flow."""
-        # Preserve existing data like NS API key
-        data = dict(self.config_entry.data)
-        data["routes"] = self.routes
-        
-        self.hass.config_entries.async_update_entry(
-            self.config_entry,
-            data=data,
-        )
-        return self.async_create_entry(title="", data={})
+        try:
+            # Preserve existing data like NS API key
+            data = dict(self.config_entry.data)
+            data["routes"] = self.routes
+            
+            _LOGGER.debug(f"Finishing options flow, saving {len(self.routes)} routes")
+            
+            self.hass.config_entries.async_update_entry(
+                self.config_entry,
+                data=data,
+            )
+            _LOGGER.debug("Config entry updated successfully")
+            return self.async_create_entry(title="", data={})
+        except Exception as err:
+            _LOGGER.error(f"Error finishing options flow: {err}", exc_info=True)
+            return self.async_abort(reason="update_failed")
 
     async def async_step_configure_api(
         self, user_input: dict[str, Any] | None = None
