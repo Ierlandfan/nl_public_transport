@@ -9,6 +9,7 @@ import aiohttp
 
 from .gtfs import GTFSStopCache
 from .gtfs_schedule import GTFSSchedule
+from .const import API_NS_URL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -16,20 +17,43 @@ OVAPI_BASE_URL = "http://v0.ovapi.nl"
 
 
 class NLPublicTransportAPI:
-    """API client for Dutch public transport services using OVAPI + GTFS."""
+    """API client for Dutch public transport services using OVAPI + GTFS + NS API."""
 
-    def __init__(self, session: aiohttp.ClientSession) -> None:
+    def __init__(self, session: aiohttp.ClientSession, ns_api_key: str = None) -> None:
         """Initialize the API client."""
         self.session = session
         self._gtfs_cache = GTFSStopCache()
         self._gtfs_schedule = GTFSSchedule()
         self._gtfs_loaded = False
+        self._ns_api_key = ns_api_key
 
-    async def get_journey(self, origin: str, destination: str, num_departures: int = 5, line_filter: str = "") -> dict[str, Any]:
-        """Get departure information from OVAPI."""
+    async def get_journey(self, origin: str, destination: str, num_departures: int = 5, line_filter: str = "", transport_type: str = None) -> dict[str, Any]:
+        """Get departure information from OVAPI or NS API.
+        
+        Args:
+            origin: Origin stop/station code
+            destination: Destination stop/station code (empty for just departures)
+            num_departures: Number of departures to fetch
+            line_filter: Filter by line number
+            transport_type: Force specific transport type ('train', 'bus', etc.)
+        """
         # DEBUG: Log what we received
         _LOGGER.error(f"🔍 get_journey called with origin='{origin}' (type={type(origin).__name__}, len={len(origin)})")
-        _LOGGER.error(f"🔍 Destination='{destination}', line_filter='{line_filter}'")
+        _LOGGER.error(f"🔍 Destination='{destination}', line_filter='{line_filter}', transport_type='{transport_type}'")
+        
+        # Determine if this is a train station code
+        is_station_code = not origin.isdigit()
+        
+        # If transport_type is explicitly 'train' or this looks like a train station, try NS API first
+        if transport_type == "train" or (is_station_code and self._ns_api_key):
+            _LOGGER.info(f"Using NS API for train station {origin}")
+            return await self.get_ns_departures(origin, num_departures)
+        
+        # Otherwise use OVAPI for buses/trams/metro
+        return await self._get_ovapi_journey(origin, destination, num_departures, line_filter)
+    
+    async def _get_ovapi_journey(self, origin: str, destination: str, num_departures: int, line_filter: str) -> dict[str, Any]:
+        """Get departure information from OVAPI (buses, trams, metro)."""
         
         # Load GTFS if we have a destination to filter by
         valid_trip_ids = set()
@@ -375,3 +399,104 @@ class NLPublicTransportAPI:
             "scheduled_departures": schedule,
             "total_count": len(schedule),
         }
+
+    async def get_ns_departures(self, station_code: str, num_departures: int = 5) -> dict[str, Any]:
+        """Get train departures from NS API.
+        
+        Args:
+            station_code: NS station code (e.g., 'HnNS', 'amrnrd')
+            num_departures: Number of departures to fetch
+            
+        Returns:
+            Journey data in standard format
+        """
+        if not self._ns_api_key:
+            _LOGGER.warning("NS API key not configured - cannot fetch train departures")
+            return self._get_default_data()
+        
+        try:
+            url = f"{API_NS_URL}/reisinformatie-api/api/v3/departures"
+            headers = {
+                "Ocp-Apim-Subscription-Key": self._ns_api_key,
+            }
+            params = {
+                "station": station_code,
+                "maxJourneys": num_departures,
+            }
+            
+            _LOGGER.debug(f"Requesting NS departures from {station_code}")
+            
+            async with self.session.get(url, headers=headers, params=params, timeout=10) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    _LOGGER.error(f"NS API returned status {response.status}: {error_text[:200]}")
+                    return self._get_default_data()
+                
+                data = await response.json()
+                departures_data = data.get("payload", {}).get("departures", [])
+                
+                if not departures_data:
+                    _LOGGER.warning(f"No train departures found for station {station_code}")
+                    return self._get_default_data()
+                
+                # Convert NS API format to our standard format
+                departures = []
+                for dep in departures_data[:num_departures]:
+                    planned_time = dep.get("plannedDateTime", "")
+                    actual_time = dep.get("actualDateTime", planned_time)
+                    
+                    # Calculate delay
+                    delay = 0
+                    if planned_time and actual_time:
+                        try:
+                            planned_dt = datetime.fromisoformat(planned_time.replace('Z', '+00:00'))
+                            actual_dt = datetime.fromisoformat(actual_time.replace('Z', '+00:00'))
+                            delay = int((actual_dt - planned_dt).total_seconds() / 60)
+                        except Exception:
+                            pass
+                    
+                    departures.append({
+                        "line_number": dep.get("trainCategory", "") + " " + dep.get("product", {}).get("number", ""),
+                        "destination": dep.get("direction", ""),
+                        "expected_departure": actual_time,
+                        "expected_arrival": None,
+                        "target_departure": planned_time,
+                        "target_arrival": None,
+                        "delay": delay,
+                        "transport_type": "TRAIN",
+                        "status": dep.get("departureStatus", "UNKNOWN"),
+                        "minutes_until_departure": self._minutes_until(actual_time),
+                        "vehicle_position": None,
+                        "platform": dep.get("actualTrack") or dep.get("plannedTrack", ""),
+                        "cancelled": dep.get("cancelled", False),
+                        "route_stations": dep.get("routeStations", []),
+                    })
+                
+                if not departures:
+                    return self._get_default_data()
+                
+                first_departure = departures[0]
+                
+                return {
+                    "origin": station_code,
+                    "destination": first_departure["destination"],
+                    "departure_time": first_departure["expected_departure"],
+                    "arrival_time": None,
+                    "delay": first_departure["delay"],
+                    "delay_reason": "",
+                    "platform": first_departure.get("platform", ""),
+                    "vehicle_types": ["TRAIN"],
+                    "coordinates": [],
+                    "upcoming_departures": departures,
+                    "alternatives": [],
+                    "has_alternatives": len(departures) > 1,
+                    "missed_connection": False,
+                    "reroute_recommended": False,
+                    "journey_description": [
+                        f"{first_departure['line_number']} to {first_departure['destination']}"
+                    ],
+                }
+                
+        except Exception as err:
+            _LOGGER.error(f"Error fetching NS data: {err}", exc_info=True)
+            return self._get_default_data()

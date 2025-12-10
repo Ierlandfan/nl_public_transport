@@ -13,6 +13,7 @@ CONF_NOTIFY_ON_DISRUPTION = "notify_on_disruption"
 CONF_MIN_DELAY_THRESHOLD = "min_delay_threshold"
 CONF_NUM_DEPARTURES = "num_departures"
 CONF_LINE_FILTER = "line_filter"  # Filter by specific bus/train line numbers
+CONF_NS_API_KEY = "ns_api_key"  # NS API key for train data
 
 # Multi-leg journey constants
 CONF_LEGS = "legs"

@@ -20,9 +20,11 @@ from .const import (
     CONF_LEG_ORIGIN,
     CONF_LEG_DESTINATION,
     CONF_LEG_LINE_FILTER,
+    CONF_LEG_TRANSPORT_TYPE,
     CONF_ROUTE_NAME,
     CONF_MIN_TRANSFER_TIME,
     DEFAULT_MIN_TRANSFER_TIME,
+    CONF_NS_API_KEY,
 )
 from .api import NLPublicTransportAPI
 from .schedule import should_show_route
@@ -38,7 +40,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     
     session = async_get_clientsession(hass)
-    api = NLPublicTransportAPI(session)
+    ns_api_key = entry.data.get(CONF_NS_API_KEY) or entry.options.get(CONF_NS_API_KEY)
+    api = NLPublicTransportAPI(session, ns_api_key=ns_api_key)
     
     coordinator = NLPublicTransportCoordinator(hass, api, entry)
     await coordinator.async_config_entry_first_refresh()
@@ -152,17 +155,19 @@ class NLPublicTransportCoordinator(DataUpdateCoordinator):
             origin = leg.get(CONF_LEG_ORIGIN)
             destination = leg.get(CONF_LEG_DESTINATION)
             line_filter = leg.get(CONF_LEG_LINE_FILTER, "")
+            transport_type = leg.get(CONF_LEG_TRANSPORT_TYPE)  # Get transport type for this leg
             
             if not origin or not destination:
                 _LOGGER.warning(f"Leg {idx + 1} missing origin or destination")
                 continue
             
-            # Get journey data for this leg
+            # Get journey data for this leg with transport type
             leg_journey = await self.api.get_journey(
                 origin,
                 destination,
                 num_departures=num_departures,
-                line_filter=line_filter
+                line_filter=line_filter,
+                transport_type=transport_type
             )
             
             leg_journey["leg_number"] = idx + 1
