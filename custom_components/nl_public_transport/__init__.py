@@ -65,8 +65,16 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload config entry."""
-    await async_unload_entry(hass, entry)
-    await async_setup_entry(hass, entry)
+    # Just refresh the coordinator instead of full reload
+    coordinator = hass.data[DOMAIN].get(entry.entry_id)
+    if coordinator:
+        _LOGGER.debug("Refreshing coordinator after config change")
+        await coordinator.async_refresh()
+    else:
+        # Full reload if coordinator doesn't exist
+        _LOGGER.debug("Coordinator not found, doing full reload")
+        await async_unload_entry(hass, entry)
+        await async_setup_entry(hass, entry)
 
 
 class NLPublicTransportCoordinator(DataUpdateCoordinator):
