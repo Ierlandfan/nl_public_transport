@@ -415,7 +415,7 @@ class NLPublicTransportAPI:
             return self._get_default_data()
         
         try:
-            url = f"{API_NS_URL}/reisinformatie-api/api/v3/departures"
+            url = f"{API_NS_URL}/reisinformatie-api/api/v2/departures"
             headers = {
                 "Ocp-Apim-Subscription-Key": self._ns_api_key,
             }
