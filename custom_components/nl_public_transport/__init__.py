@@ -79,6 +79,7 @@ class NLPublicTransportCoordinator(DataUpdateCoordinator):
             _LOGGER,
             name=DOMAIN,
             update_interval=timedelta(seconds=60),
+            config_entry=entry,
         )
         self.api = api
         self.entry = entry
