@@ -24,6 +24,7 @@ class GTFSStopCache:
         """Initialize the cache."""
         self._stops: dict[str, dict[str, Any]] = {}
         self._trips: dict[str, list[dict[str, Any]]] = {}  # trip_id -> list of stops
+        self._stop_code_to_id: dict[str, str] = {}  # stop_code -> stop_id mapping
         self._loaded = False
 
     async def load(self) -> None:
@@ -74,6 +75,10 @@ class GTFSStopCache:
                             }
             
             self._stops = stops
+            
+            # Build stop_code to stop_id mapping
+            self._stop_code_to_id = {data["stop_code"]: data["stop_id"] for data in stops.values()}
+            
             self._loaded = True
             _LOGGER.info("Loaded %d GTFS stops (bus/tram/metro)", len(stops))
             
@@ -144,14 +149,24 @@ class GTFSStopCache:
 
         return results
 
-    def get_trips_between_stops(self, origin_stop_id: str, destination_stop_id: str) -> set[str]:
+    def get_trips_between_stops(self, origin_stop_code: str, destination_stop_code: str) -> set[str]:
         """Find all trip IDs that go from origin to destination.
+        
+        Args:
+            origin_stop_code: The stop_code (OVAPI ID) of the origin
+            destination_stop_code: The stop_code (OVAPI ID) of the destination
         
         Returns a set of trip_ids where origin comes before destination in the stop sequence.
         """
         if not self._trips:
             _LOGGER.debug("No trip data loaded for route filtering")
             return set()
+        
+        # Convert stop_codes to stop_ids for GTFS lookup
+        origin_stop_id = self._stop_code_to_id.get(origin_stop_code, origin_stop_code)
+        destination_stop_id = self._stop_code_to_id.get(destination_stop_code, destination_stop_code)
+        
+        _LOGGER.debug(f"Looking for trips: {origin_stop_code} (id: {origin_stop_id}) -> {destination_stop_code} (id: {destination_stop_id})")
         
         matching_trips = set()
         
@@ -169,6 +184,6 @@ class GTFSStopCache:
             if origin_seq is not None and dest_seq is not None and origin_seq < dest_seq:
                 matching_trips.add(trip_id)
         
-        _LOGGER.debug(f"Found {len(matching_trips)} trips from {origin_stop_id} to {destination_stop_id}")
+        _LOGGER.debug(f"Found {len(matching_trips)} trips from {origin_stop_code} to {destination_stop_code}")
         return matching_trips
 
