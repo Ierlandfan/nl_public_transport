@@ -482,19 +482,31 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Ensure API is initialized
                 if self.api is None:
                     session = async_get_clientsession(self.hass)
-                    self.api = NLPublicTransportAPI(session)
+                    ns_api_key = None  # Will be set when needed
+                    self.api = NLPublicTransportAPI(session, ns_api_key=ns_api_key)
                 
                 try:
-                    # Search for stations
-                    self.origin_options = await self.api.search_location(leg_origin_search)
-                    self.destination_options = await self.api.search_location(leg_destination_search)
+                    transport_type = user_input.get("transport_type", "train")
+                    
+                    # Search for stations - filter by transport type
+                    if transport_type == "train":
+                        # Only search NS stations for trains
+                        self.origin_options = await self.api.search_ns_stations(leg_origin_search)
+                        self.destination_options = await self.api.search_ns_stations(leg_destination_search)
+                    else:
+                        # Search all stations for bus/tram
+                        self.origin_options = await self.api.search_location(leg_origin_search)
+                        self.destination_options = await self.api.search_location(leg_destination_search)
+                        # Filter out train-only stations
+                        self.origin_options = [s for s in self.origin_options if s.get("type") != "train"]
+                        self.destination_options = [s for s in self.destination_options if s.get("type") != "train"]
                     
                     if not self.origin_options or not self.destination_options:
                         errors["base"] = "no_stations_found"
                     else:
                         # Store leg config temporarily
                         self.search_data.update({
-                            "transport_type": user_input.get("transport_type", "train"),
+                            "transport_type": transport_type,
                             "line_filter": user_input.get("line_filter", ""),
                         })
                         return await self.async_step_select_leg_stations()

@@ -485,7 +485,9 @@ class NLPublicTransportAPI:
             async with self.session.get(url, headers=headers, params=params, timeout=10) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    _LOGGER.error(f"NS API returned status {response.status}: {error_text[:200]}")
+                    _LOGGER.error(f"NS API returned status {response.status} for station '{station_code}': {error_text[:200]}")
+                    if response.status == 500:
+                        _LOGGER.error(f"Station code '{station_code}' may be invalid for NS API. Use NS station codes (e.g., 'HT', 'ASD'), not OVAPI codes.")
                     return self._get_default_data()
                 
                 data = await response.json()
