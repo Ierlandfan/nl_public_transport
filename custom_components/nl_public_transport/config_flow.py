@@ -660,6 +660,7 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
         self.origin_options: list[dict[str, Any]] = []
         self.destination_options: list[dict[str, Any]] = []
         self.search_data: dict[str, Any] = {}
+        self._route_to_edit_index: int = -1
 
     def _get_notify_services(self) -> list[str]:
         """Get available notify services from Home Assistant."""
@@ -685,7 +686,7 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
         
         return self.async_show_menu(
             step_id="init",
-            menu_options=["add_route", "remove_route", "configure_api", "finish"],
+            menu_options=["add_route", "edit_route", "remove_route", "configure_api", "finish"],
         )
 
     async def async_step_add_route(
@@ -900,6 +901,124 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
         except Exception as err:
             _LOGGER.error(f"Options: Error getting available lines: {err}", exc_info=True)
             return []
+
+    async def async_step_edit_route(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Select a route to edit."""
+        if user_input is not None:
+            route_to_edit = user_input.get("route")
+            if route_to_edit is not None and route_to_edit < len(self.routes):
+                self.route_data = self.routes[route_to_edit].copy()
+                self._route_to_edit_index = route_to_edit
+                return await self.async_step_edit_route_details()
+            return await self.async_step_init()
+
+        if not self.routes:
+            return await self.async_step_init()
+
+        route_options = {}
+        for idx, route in enumerate(self.routes):
+            # Format route name based on type
+            if CONF_LEGS in route:
+                route_name = route.get(CONF_ROUTE_NAME, "Multi-leg Route")
+                route_options[idx] = f"{route_name} ({len(route[CONF_LEGS])} legs)"
+            else:
+                route_options[idx] = f"{route[CONF_ORIGIN]} → {route[CONF_DESTINATION]}"
+                if route.get(CONF_REVERSE):
+                    route_options[idx] += " (Reverse enabled)"
+
+        return self.async_show_form(
+            step_id="edit_route",
+            data_schema=vol.Schema({
+                vol.Required("route"): vol.In(route_options),
+            }),
+            description_placeholders={
+                "info": "Select a route to edit its settings"
+            },
+        )
+
+    async def async_step_edit_route_details(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Edit route details."""
+        if user_input is not None:
+            # Update the route with new values
+            self.route_data.update({
+                CONF_NOTIFY_BEFORE: user_input.get(CONF_NOTIFY_BEFORE, 30),
+                CONF_NOTIFY_SERVICES: user_input.get(CONF_NOTIFY_SERVICES, []),
+                CONF_NOTIFY_ON_DELAY: user_input.get(CONF_NOTIFY_ON_DELAY, True),
+                CONF_NOTIFY_ON_DISRUPTION: user_input.get(CONF_NOTIFY_ON_DISRUPTION, True),
+                CONF_MIN_DELAY_THRESHOLD: user_input.get(CONF_MIN_DELAY_THRESHOLD, 5),
+                "departure_time": user_input.get("departure_time"),
+                "days": user_input.get("days", ["mon", "tue", "wed", "thu", "fri"]),
+                "exclude_holidays": user_input.get("exclude_holidays", True),
+                "custom_exclude_dates": user_input.get("custom_exclude_dates"),
+            })
+            
+            # Replace the route in the list
+            self.routes[self._route_to_edit_index] = self.route_data
+            return await self.async_step_init()
+
+        # Get current values for defaults
+        current_notify_before = self.route_data.get(CONF_NOTIFY_BEFORE, 30)
+        current_notify_services = self.route_data.get(CONF_NOTIFY_SERVICES, [])
+        current_notify_on_delay = self.route_data.get(CONF_NOTIFY_ON_DELAY, True)
+        current_notify_on_disruption = self.route_data.get(CONF_NOTIFY_ON_DISRUPTION, True)
+        current_min_delay = self.route_data.get(CONF_MIN_DELAY_THRESHOLD, 5)
+        current_departure_time = self.route_data.get("departure_time")
+        current_days = self.route_data.get("days", ["mon", "tue", "wed", "thu", "fri"])
+        current_exclude_holidays = self.route_data.get("exclude_holidays", True)
+        current_custom_dates = self.route_data.get("custom_exclude_dates", "")
+
+        # Format route name for display
+        if CONF_LEGS in self.route_data:
+            route_name = self.route_data.get(CONF_ROUTE_NAME, "Multi-leg Route")
+        else:
+            route_name = f"{self.route_data[CONF_ORIGIN]} → {self.route_data[CONF_DESTINATION]}"
+
+        return self.async_show_form(
+            step_id="edit_route_details",
+            data_schema=vol.Schema({
+                vol.Optional("departure_time", default=current_departure_time): selector.TimeSelector(),
+                vol.Optional("days", default=current_days): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            {"value": "mon", "label": "Monday"},
+                            {"value": "tue", "label": "Tuesday"},
+                            {"value": "wed", "label": "Wednesday"},
+                            {"value": "thu", "label": "Thursday"},
+                            {"value": "fri", "label": "Friday"},
+                            {"value": "sat", "label": "Saturday"},
+                            {"value": "sun", "label": "Sunday"},
+                        ],
+                        multiple=True,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional("exclude_holidays", default=current_exclude_holidays): bool,
+                vol.Optional("custom_exclude_dates", default=current_custom_dates): str,
+                vol.Optional(CONF_NOTIFY_BEFORE, default=current_notify_before): vol.All(
+                    vol.Coerce(int), vol.Range(min=5, max=120)
+                ),
+                vol.Optional(CONF_NOTIFY_SERVICES, default=current_notify_services): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=self._get_notify_services(),
+                        multiple=True,
+                        custom_value=True,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(CONF_NOTIFY_ON_DELAY, default=current_notify_on_delay): bool,
+                vol.Optional(CONF_NOTIFY_ON_DISRUPTION, default=current_notify_on_disruption): bool,
+                vol.Optional(CONF_MIN_DELAY_THRESHOLD, default=current_min_delay): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=60)
+                ),
+            }),
+            description_placeholders={
+                "route_name": route_name,
+            },
+        )
 
     async def async_step_remove_route(
         self, user_input: dict[str, Any] | None = None
