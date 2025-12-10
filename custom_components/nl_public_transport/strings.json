@@ -119,7 +119,8 @@
         "menu_options": {
           "add_route": "Add New Route",
           "remove_route": "Remove Route",
-          "finish": "Save & Exit"
+          "finish": "Save & Exit",
+          "configure_api": "Configure API Keys"
         }
       },
       "add_route": {
@@ -152,6 +153,16 @@
         "description": "Select a route to remove",
         "data": {
           "route": "Route to remove"
+        }
+      },
+      "configure_api": {
+        "title": "Configure API Keys",
+        "description": "Configure API keys for additional features",
+        "data": {
+          "ns_api_key": "NS API Key (optional)"
+        },
+        "data_description": {
+          "ns_api_key": "Get your free API key from https://apiportal.ns.nl/ for real-time train data. Leave empty to use only OVAPI (bus/tram)."
         }
       }
     },

@@ -13,7 +13,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import selector
 import homeassistant.helpers.config_validation as cv
 
-from .const import DOMAIN, CONF_ROUTES, CONF_ORIGIN, CONF_DESTINATION, CONF_REVERSE, CONF_LINE_FILTER
+from .const import DOMAIN, CONF_ROUTES, CONF_ORIGIN, CONF_DESTINATION, CONF_REVERSE, CONF_LINE_FILTER, CONF_NS_API_KEY
 from .const import (
     CONF_NOTIFY_BEFORE,
     CONF_NOTIFY_SERVICES,
@@ -674,7 +674,7 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
         
         return self.async_show_menu(
             step_id="init",
-            menu_options=["add_route", "remove_route", "finish"],
+            menu_options=["add_route", "remove_route", "configure_api", "finish"],
         )
 
     async def async_step_add_route(
@@ -925,3 +925,30 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
             data={"routes": self.routes},
         )
         return self.async_create_entry(title="", data={})
+
+    async def async_step_configure_api(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Configure API keys."""
+        if user_input is not None:
+            # Update config entry with NS API key
+            return self.async_create_entry(
+                title="",
+                data={
+                    **self.config_entry.data,
+                    "ns_api_key": user_input.get("ns_api_key", ""),
+                },
+            )
+        
+        # Get current NS API key if set
+        current_key = self.config_entry.data.get("ns_api_key", "")
+        
+        return self.async_show_form(
+            step_id="configure_api",
+            data_schema=vol.Schema({
+                vol.Optional("ns_api_key", default=current_key): str,
+            }),
+            description_placeholders={
+                "api_key_info": "Enter your NS API key from https://apiportal.ns.nl/\nLeave empty to use only OVAPI (bus/tram data)",
+            },
+        )
