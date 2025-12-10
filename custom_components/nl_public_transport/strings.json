@@ -5,6 +5,7 @@
         "title": "Dutch Public Transport",
         "description": "Set up your public transport routes",
         "menu_options": {
+          "configure_api": "Configure API Keys",
           "add_route": "Add Simple Route",
           "add_multi_leg_route": "Add Multi-Leg Journey",
           "finish": "Finish Setup"

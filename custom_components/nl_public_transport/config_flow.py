@@ -50,6 +50,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self.origin_options: list[dict[str, Any]] = []
         self.destination_options: list[dict[str, Any]] = []
         self.search_data: dict[str, Any] = {}
+        self._ns_api_key: str = ""
         
         # Multi-leg journey data
         self.current_legs: list[dict[str, Any]] = []
@@ -88,7 +89,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_menu(
             step_id="user",
-            menu_options=["add_route", "add_multi_leg_route", "finish"],
+            menu_options=["configure_api", "add_route", "add_multi_leg_route", "finish"],
         )
 
     async def async_step_add_route(
@@ -388,9 +389,13 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if not self.routes:
             return self.async_abort(reason="no_routes")
 
+        data = {"routes": self.routes}
+        if self._ns_api_key:
+            data[CONF_NS_API_KEY] = self._ns_api_key
+
         return self.async_create_entry(
             title="Dutch Public Transport",
-            data={"routes": self.routes},
+            data=data,
         )
 
     @staticmethod
@@ -643,6 +648,43 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_NOTIFY_ON_DELAY: self.search_data.get(CONF_NOTIFY_ON_DELAY, True),
             CONF_NOTIFY_ON_DISRUPTION: self.search_data.get(CONF_NOTIFY_ON_DISRUPTION, True),
             CONF_MIN_DELAY_THRESHOLD: self.search_data.get(CONF_MIN_DELAY_THRESHOLD, 5),
+        }
+        
+        self.routes.append(route)
+        
+        # Clear leg data
+        self.current_legs = []
+        self.route_name = ""
+        self.last_destination = ""
+        self.search_data = {}
+        
+        return await self.async_step_user()
+
+    async def async_step_configure_api(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Configure API keys during initial setup."""
+        if user_input is not None:
+            # Store API key in a temporary variable
+            self._ns_api_key = user_input.get(CONF_NS_API_KEY, "")
+            # Reinitialize API with the key
+            if self.api:
+                session = async_get_clientsession(self.hass)
+                self.api = NLPublicTransportAPI(session, ns_api_key=self._ns_api_key)
+            return await self.async_step_user()
+        
+        return self.async_show_form(
+            step_id="configure_api",
+            data_schema=vol.Schema({
+                vol.Optional(CONF_NS_API_KEY, default=""): str,
+            }),
+            description_placeholders={
+                "api_key_info": "Enter your NS API key from https://apiportal.ns.nl/\nLeave empty to use only OVAPI (bus/tram data)",
+            },
+        )
+
+
+class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
         }
         
         self.routes.append(route)
