@@ -66,8 +66,16 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             for service_name in notify_services.keys():
                 if service_name != "persistent_notification":
                     services.append(f"notify.{service_name}")
+            
+            # Also check for telegram_bot services
+            telegram_services = self.hass.services.async_services().get("telegram_bot", {})
+            for service_name in telegram_services.keys():
+                if service_name == "send_message":
+                    services.append("telegram_bot.send_message")
+            
+            _LOGGER.debug(f"Found {len(services)} notification services: {services}")
         except Exception as err:
-            _LOGGER.debug(f"Could not fetch notify services: {err}")
+            _LOGGER.error(f"Could not fetch notify services: {err}")
         return services
 
     async def async_step_user(
@@ -708,8 +716,16 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
             for service_name in notify_services.keys():
                 if service_name != "persistent_notification":
                     services.append(f"notify.{service_name}")
+            
+            # Also check for telegram_bot services
+            telegram_services = self.hass.services.async_services().get("telegram_bot", {})
+            for service_name in telegram_services.keys():
+                if service_name == "send_message":
+                    services.append("telegram_bot.send_message")
+            
+            _LOGGER.debug(f"Found {len(services)} notification services: {services}")
         except Exception as err:
-            _LOGGER.debug(f"Could not fetch notify services: {err}")
+            _LOGGER.error(f"Could not fetch notify services: {err}")
         return services
 
 
@@ -1007,7 +1023,7 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
         current_departure_time = self.route_data.get("departure_time")
         current_days = self.route_data.get("days", ["mon", "tue", "wed", "thu", "fri"])
         current_exclude_holidays = self.route_data.get("exclude_holidays", True)
-        current_custom_dates = self.route_data.get("custom_exclude_dates", "")
+        current_custom_dates = self.route_data.get("custom_exclude_dates") or ""
 
         # Format route name for display
         if CONF_LEGS in self.route_data:
