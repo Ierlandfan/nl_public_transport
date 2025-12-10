@@ -685,20 +685,7 @@ class NLPublicTransportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
-        }
-        
-        self.routes.append(route)
-        
-        # Clear leg data
-        self.current_legs = []
-        self.route_name = ""
-        self.last_destination = ""
-        self.search_data = {}
-        
-        return await self.async_step_user()
-
-
-class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
+    """Handle options flow for Dutch Public Transport."""
     """Handle options flow for Dutch Public Transport."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
