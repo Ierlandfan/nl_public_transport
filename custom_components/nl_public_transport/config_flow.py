@@ -641,7 +641,6 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
-        self.config_entry = config_entry
         self.routes: list[dict[str, Any]] = list(config_entry.data.get(CONF_ROUTES, []))
         self.route_data: dict[str, Any] = {}
         self.available_lines: list[dict[str, Any]] = []
@@ -932,21 +931,23 @@ class NLPublicTransportOptionsFlow(config_entries.OptionsFlow):
         """Configure API keys."""
         if user_input is not None:
             # Update config entry with NS API key
-            return self.async_create_entry(
-                title="",
+            ns_api_key = user_input.get("ns_api_key", "")
+            self.hass.config_entries.async_update_entry(
+                self.config_entry,
                 data={
                     **self.config_entry.data,
-                    "ns_api_key": user_input.get("ns_api_key", ""),
+                    CONF_NS_API_KEY: ns_api_key,
                 },
             )
+            return self.async_create_entry(title="", data={})
         
         # Get current NS API key if set
-        current_key = self.config_entry.data.get("ns_api_key", "")
+        current_key = self.config_entry.data.get(CONF_NS_API_KEY, "")
         
         return self.async_show_form(
             step_id="configure_api",
             data_schema=vol.Schema({
-                vol.Optional("ns_api_key", default=current_key): str,
+                vol.Optional(CONF_NS_API_KEY, default=current_key): str,
             }),
             description_placeholders={
                 "api_key_info": "Enter your NS API key from https://apiportal.ns.nl/\nLeave empty to use only OVAPI (bus/tram data)",
