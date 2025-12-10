@@ -293,10 +293,19 @@ class NLPublicTransportAPI:
 
 
     async def search_location(self, query: str) -> list[dict[str, Any]]:
-        """Search for locations/stops using OVAPI CHB Registry + GTFS."""
+        """Search for locations/stops using NS API + OVAPI CHB Registry + GTFS."""
         results = []
         
-        # First, search OVAPI stopareacode (includes all stops: bus, tram, metro, train)
+        # First, search NS stations if API key is available
+        if self._ns_api_key:
+            try:
+                ns_stations = await self.search_ns_stations(query)
+                results.extend(ns_stations)
+                _LOGGER.debug(f"Found {len(ns_stations)} NS stations for '{query}'")
+            except Exception as err:
+                _LOGGER.warning(f"Error searching NS stations: {err}")
+        
+        # Then search OVAPI stopareacode (includes all stops: bus, tram, metro, train)
         try:
             url = f"{OVAPI_BASE_URL}/stopareacode/"
             _LOGGER.debug(f"Fetching all stops from OVAPI CHB Registry")
@@ -344,8 +353,55 @@ class NLPublicTransportAPI:
             if gtfs_result["id"] not in existing_ids:
                 results.append(gtfs_result)
         
-        _LOGGER.info(f"Found {len(results)} locations for query '{query}' (OVAPI + GTFS)")
+        _LOGGER.info(f"Found {len(results)} locations for query '{query}' (NS + OVAPI + GTFS)")
         return results[:200]  # Limit to 200 results
+    
+    async def search_ns_stations(self, query: str) -> list[dict[str, Any]]:
+        """Search for NS train stations."""
+        if not self._ns_api_key:
+            return []
+        
+        try:
+            url = f"{API_NS_URL}/reisinformatie-api/api/v2/stations"
+            headers = {"Ocp-Apim-Subscription-Key": self._ns_api_key}
+            
+            async with self.session.get(url, headers=headers, timeout=10) as response:
+                if response.status != 200:
+                    _LOGGER.warning(f"NS stations API returned status {response.status}")
+                    return []
+                
+                data = await response.json()
+                stations = data.get("payload", [])
+                
+                # Filter stations by query
+                query_lower = query.lower()
+                results = []
+                for station in stations:
+                    names = station.get("namen", {})
+                    long_name = names.get("lang", "")
+                    medium_name = names.get("middel", "")
+                    short_name = names.get("kort", "")
+                    
+                    # Check if query matches any name variant
+                    if (query_lower in long_name.lower() or 
+                        query_lower in medium_name.lower() or
+                        query_lower in short_name.lower()):
+                        
+                        # Use NS station code (not UIC code) for better compatibility
+                        results.append({
+                            "id": station.get("code", ""),
+                            "name": long_name,
+                            "latitude": station.get("lat", 0),
+                            "longitude": station.get("lng", 0),
+                            "type": "train",
+                            "ns_code": station.get("code", ""),
+                            "uic_code": station.get("UICCode", ""),
+                        })
+                
+                return results
+        except Exception as err:
+            _LOGGER.error(f"Error searching NS stations: {err}")
+            return []
 
     def _get_default_data(self) -> dict[str, Any]:
         """Return default/empty data structure."""
